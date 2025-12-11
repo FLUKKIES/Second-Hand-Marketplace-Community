@@ -8,7 +8,7 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 export class UsersController {
     constructor(
         private readonly usersService: UsersService
-    ) { }
+    ) {}
 
     // ============================
     // Private Routes (ต้อง Login)
@@ -16,14 +16,14 @@ export class UsersController {
 
     @UseGuards(AuthGuard('jwt'))
     @Get('me')
-    getMe(@GetUser('sub') userId: string) {    // 'sub' คือ id ใน JWT payload
+    getMe(@GetUser('userId') userId: string) { 
         return this.usersService.getMe(userId)
     }
 
     @UseGuards(AuthGuard('jwt'))
     @Patch('me')
     updateMe(
-        @GetUser('sub') userId: string,
+        @GetUser('userId') userId: string,
         @Body() dto: UpdateUserDto,
     ) {
         return this.usersService.updateMe(userId, dto);
@@ -33,7 +33,7 @@ export class UsersController {
     // Public Routes (ใครก็ดูได้)
     // ============================
 
-    @Get(':username') // เช่น GET /users/seller123
+    @Get(':username') 
     getProfile(@Param('username') username: string) {
         return this.usersService.getPublicProfile(username);
     }

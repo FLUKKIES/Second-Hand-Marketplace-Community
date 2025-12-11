@@ -208,7 +208,10 @@ model OrderRequest {
     status OrderRequestStatus @default(PENDING)
 
     // เมื่อผู้ขาย approve → จะมี Order เกิดขึ้น
-    order Order?
+    // เดิม: order Order?
+    // ใหม่: ผูก OrderId ลงไปในนี้แทน (แปลว่า Request นี้ถูกรวมอยู่ใน Order ไหน)
+    orderId String?
+    order   Order?  @relation(fields: [orderId], references: [id])
 
     createdAt    DateTime      @default(now())
     updatedAt    DateTime      @updatedAt
@@ -224,8 +227,10 @@ model OrderRequest {
 model Order {
     id String @id @default(uuid())
 
-    orderRequestId String?       @unique
-    orderRequest   OrderRequest? @relation(fields: [orderRequestId], references: [id])
+    // --- แก้ตรงนี้ 2: เอา orderRequestId ออก แล้วใส่เป็น List แทน ---
+    // orderRequestId String? @unique  <-- ลบบรรทัดนี้ทิ้ง
+    // orderRequest   OrderRequest?    <-- ลบบรรทัดนี้ทิ้ง
+    orderRequests OrderRequest[] // 1 Order มีได้หลาย Request
 
     buyerId String
     buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])

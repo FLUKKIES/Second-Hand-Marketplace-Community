@@ -1,34 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Param } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
-import { UpdatePostDto } from './dto/update-post.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { GetUser } from '../auth/decorator/get-user.decorator';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+    constructor(private readonly postsService: PostsService) { }
 
-  @Post()
-  create(@Body() createPostDto: CreatePostDto) {
-    return this.postsService.create(createPostDto);
-  }
+    @Post()
+    @UseGuards(AuthGuard('jwt'))
+    create(@GetUser('userId') userId: string, @Body() createPostDto: CreatePostDto) {
+        return this.postsService.create(userId, createPostDto);
+    }
 
-  @Get()
-  findAll() {
-    return this.postsService.findAll();
-  }
+    @Get()
+    findAll() {
+        return this.postsService.findAll();
+    }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.postsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
-    return this.postsService.update(+id, updatePostDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.postsService.remove(+id);
-  }
+    @Post(':id/like') // POST /posts/uuid-123/like
+    @UseGuards(AuthGuard('jwt'))
+    toggleLike(@Param('id') postId: string, @GetUser('sub') userId: string) {
+        return this.postsService.toggleLike(userId, postId);
+    }
 }
