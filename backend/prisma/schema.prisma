@@ -1,0 +1,318 @@
+generator client {
+    provider     = "prisma-client-js"
+    moduleFormat = "cjs"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+// ==========================================
+// 1. Enums
+// ==========================================
+
+enum Role {
+    USER
+    ADMIN
+}
+
+enum AuthProvider {
+    LOCAL
+    GOOGLE
+}
+
+enum PostType {
+    GENERAL
+    SALE
+}
+
+enum OrderRequestStatus {
+    PENDING // ผู้ซื้อส่งคำขอซื้อ
+    APPROVING // ผู้ขายกำลังตรวจสอบ
+    APPROVED // ผู้ขายเลือกผู้ซื้อรายนี้
+    REJECTED // ผู้ขายปฏิเสธ
+}
+
+enum OrderStatus {
+    TO_PAY // รอชำระเงิน
+    TO_SHIP // รอผู้ขายจัดส่ง
+    TO_RECEIVE // รอผู้ซื้อรับสินค้า
+    COMPLETED // สำเร็จ
+    CANCELLED // ยกเลิก
+}
+
+// ==========================================
+// 2. User & Authentication
+// ==========================================
+
+model User {
+    id       String  @id @default(uuid())
+    email    String  @unique
+    username String  @unique
+    password String?
+
+    provider   AuthProvider @default(LOCAL)
+    providerId String?
+
+    avatarUrl String?
+    bio       String?
+    role      Role    @default(USER)
+
+    address     String? @db.Text
+    phoneNumber String?
+
+    posts    Post[]
+    comments Comment[]
+    likes    Like[]
+
+    orders        Order[]        @relation("BuyerOrders")
+    orderRequests OrderRequest[] // ที่ผู้ใช้เคยจอง
+
+    // Chat Relations
+    chatRoomsInitiated ChatRoom[] @relation("ChatInitiator")
+    chatRoomsReceived  ChatRoom[] @relation("ChatRecipient")
+
+    sentMessages ChatMessage[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("users")
+}
+
+// ==========================================
+// 3. Category (Hierarchical)
+// ==========================================
+
+model Category {
+    id   Int    @id @default(autoincrement())
+    name String
+    slug String @unique
+
+    parentId Int?
+    parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+    children Category[] @relation("CategoryHierarchy")
+
+    posts Post[]
+
+    createdAt DateTime @default(now())
+
+    @@map("categories")
+}
+
+// ==========================================
+// 4. Post System
+// ==========================================
+
+model Post {
+    id      String   @id @default(uuid())
+    content String   @db.Text
+    type    PostType @default(GENERAL)
+
+    authorId String
+    author   User   @relation(fields: [authorId], references: [id])
+
+    categoryId Int?
+    category   Category? @relation(fields: [categoryId], references: [id])
+
+    images    PostImage[]
+    saleItems SaleItem[]
+
+    comments Comment[]
+    likes    Like[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("posts")
+}
+
+model PostImage {
+    id  String @id @default(uuid())
+    url String
+
+    postId String
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+    @@map("post_images")
+}
+
+model SaleItem {
+    id          String  @id @default(uuid())
+    name        String
+    price       Decimal @db.Decimal(10, 2)
+    description String?
+    imageUrl    String
+
+    stock     Int     @default(1)
+    isSoldOut Boolean @default(false)
+
+    postId String
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+    // NEW: ผู้ซื้อหลายคนสามารถส่งคำขอได้
+    orderRequests OrderRequest[]
+
+    // เมื่อถูก approve จะถูกใช้ใน order
+    orderItems OrderItem[]
+
+    @@map("sale_items")
+}
+
+// ==========================================
+// 5. Social Features
+// ==========================================
+
+model Comment {
+    id      String @id @default(uuid())
+    content String @db.Text
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    postId String
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("comments")
+}
+
+model Like {
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    postId String
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@id([userId, postId])
+    @@map("likes")
+}
+
+// ==========================================
+// 6. Order Request (จองสินค้า)
+// ==========================================
+
+model OrderRequest {
+    id String @id @default(uuid())
+
+    buyerId String
+    buyer   User   @relation(fields: [buyerId], references: [id])
+
+    saleItemId String
+    saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
+
+    status OrderRequestStatus @default(PENDING)
+
+    // เมื่อผู้ขาย approve → จะมี Order เกิดขึ้น
+    order Order?
+
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+    chatMessages ChatMessage[]
+
+    @@map("order_requests")
+}
+
+// ==========================================
+// 7. Order (ออเดอร์จริง หลังจาก approve)
+// ==========================================
+
+model Order {
+    id String @id @default(uuid())
+
+    orderRequestId String?       @unique
+    orderRequest   OrderRequest? @relation(fields: [orderRequestId], references: [id])
+
+    buyerId String
+    buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
+
+    totalPrice Decimal     @db.Decimal(10, 2)
+    status     OrderStatus @default(TO_PAY)
+
+    items OrderItem[]
+
+    shippingAddress String? @db.Text
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("orders")
+}
+
+model OrderItem {
+    id String @id @default(uuid())
+
+    orderId String
+    order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+    saleItemId String
+    saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
+
+    quantity Int     @default(1)
+    price    Decimal @db.Decimal(10, 2)
+
+    @@map("order_items")
+}
+
+// ==========================================
+// 8. Chat System
+// ==========================================
+
+model ChatRoom {
+    id String @id @default(uuid())
+
+    // --- แก้ไข: ระบุตัวตน 2 คนชัดเจน (1-1 Only) ---
+
+    // คนที่ 1: คนเริ่มทัก (Initiator)
+    initiatorId String
+    initiator   User   @relation("ChatInitiator", fields: [initiatorId], references: [id])
+
+    // คนที่ 2: คนที่ถูกทัก (Recipient)
+    recipientId String
+    recipient   User   @relation("ChatRecipient", fields: [recipientId], references: [id])
+
+    messages ChatMessage[]
+
+    updatedAt DateTime @updatedAt
+    createdAt DateTime @default(now())
+
+    // Optional: ป้องกันไม่ให้คู่เดิมสร้างห้องซ้ำ (ถ้า A ทัก B ไปแล้ว จะทักซ้ำไม่ได้ ให้ไปใช้ห้องเดิม)
+    // แต่ต้องระวัง logic เรื่องสลับ A-B / B-A ในโค้ดด้วย
+    // @@unique([initiatorId, recipientId]) 
+
+    @@map("chat_rooms")
+}
+
+enum MessageType {
+    TEXT
+    IMAGE
+    ORDER_REQUEST
+    LOCATION
+    SYSTEM
+}
+
+model ChatMessage {
+    id String @id @default(uuid())
+
+    type MessageType @default(TEXT)
+
+    content  String? @db.Text
+    metadata Json?
+
+    roomId String
+    room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+    senderId String
+    sender   User   @relation(fields: [senderId], references: [id])
+
+    orderRequestId String?
+    orderRequest   OrderRequest? @relation(fields: [orderRequestId], references: [id])
+
+    createdAt DateTime @default(now())
+
+    @@map("chat_messages")
+}
