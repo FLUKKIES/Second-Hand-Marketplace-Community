@@ -7,130 +7,97 @@ import { BatchRespondDto, ActionType } from './dto/batch-respond.dto';
 export class OrdersService {
     constructor(private prisma: PrismaService) { }
 
-    // =========================================================
-    // 1. ผู้ซื้อ: กดจองสินค้า (ทำทีละชิ้น)
-    // =========================================================
+    // 1. ผู้ซื้อจอง (ต้องเช็ค deletedAt ของโพสต์ด้วย)
     async createRequest(buyerId: string, dto: CreateOrderRequestDto) {
-        // 1. เช็คสินค้าว่ามีจริงและยังไม่ขาย
         const item = await this.prisma.saleItem.findUnique({
             where: { id: dto.saleItemId },
             include: { post: true },
         });
 
         if (!item) throw new NotFoundException('Item not found');
+
+        // *** เช็คเพิ่ม: ถ้าโพสต์ถูกลบไปแล้ว ห้ามซื้อ ***
+        if (item.post.deletedAt) throw new BadRequestException('This post has been deleted');
         if (item.isSoldOut || item.stock <= 0) throw new BadRequestException('Item is out of stock');
         if (item.post.authorId === buyerId) throw new BadRequestException('You cannot buy your own item');
 
-        // 2. เช็คว่าเคยจองชิ้นนี้ไปแล้วหรือยัง (สถานะ PENDING)
         const existingReq = await this.prisma.orderRequest.findFirst({
             where: { buyerId, saleItemId: dto.saleItemId, status: 'PENDING' },
         });
         if (existingReq) throw new BadRequestException('You already requested this item');
 
-        // 3. สร้างคำขอ
         return this.prisma.orderRequest.create({
-            data: {
-                buyerId,
-                saleItemId: dto.saleItemId,
-                status: 'PENDING',
-            },
+            data: { buyerId, saleItemId: dto.saleItemId, status: 'PENDING' },
             include: { saleItem: true },
         });
     }
 
-    // =========================================================
-    // 2. ผู้ขาย: ตอบรับหลายรายการพร้อมกัน (Bundle Order)
-    // =========================================================
+    // 2. ผู้ขายตอบรับแบบ Bundle (รวมออเดอร์)
     async batchRespond(sellerId: string, dto: BatchRespondDto) {
-
-        // 1. ดึงข้อมูล Request ทั้งหมดตาม ID ที่ส่งมา
         const requests = await this.prisma.orderRequest.findMany({
             where: { id: { in: dto.requestIds } },
-            include: {
-                saleItem: { include: { post: true } },
-                buyer: true
-            },
+            include: { saleItem: { include: { post: true } } },
         });
 
-        // --- Validation Zone ---
+        if (requests.length !== dto.requestIds.length) throw new NotFoundException('Some requests not found');
 
-        // A. เช็คจำนวนว่าเจอครบไหม
-        if (requests.length !== dto.requestIds.length) {
-            throw new NotFoundException('Some requests not found');
+        const firstBuyerId = requests[0].buyerId;
+        if (!requests.every(req => req.buyerId === firstBuyerId)) {
+            throw new BadRequestException('All requests must belong to the same buyer');
+        }
+        if (!requests.every(req => req.saleItem.post.authorId === sellerId)) {
+            throw new ForbiddenException('Not owner of some items');
+        }
+        if (!requests.every(req => req.status === 'PENDING')) {
+            throw new BadRequestException('Requests already processed');
         }
 
-        // B. เช็คว่าเป็นของผู้ซื้อคนเดียวกันทั้งหมดไหม (สำคัญมาก! ไม่งั้นรวมบิลไม่ได้)
-        const firstBuyerId = requests[0].buyerId;
-        const isSameBuyer = requests.every(req => req.buyerId === firstBuyerId);
-        if (!isSameBuyer) throw new BadRequestException('All requests must belong to the same buyer to be bundled');
-
-        // C. เช็คว่าคนกด Approve เป็นเจ้าของสินค้าทุกชิ้นไหม
-        const isOwner = requests.every(req => req.saleItem.post.authorId === sellerId);
-        if (!isOwner) throw new ForbiddenException('You are not the owner of some items');
-
-        // D. เช็คสถานะต้องเป็น PENDING เท่านั้น
-        const isPending = requests.every(req => req.status === 'PENDING');
-        if (!isPending) throw new BadRequestException('Some requests are already processed');
-
-
-        // --- Action Zone ---
-
-        // กรณี REJECT: ปรับสถานะเป็น REJECTED ทั้งหมด
         if (dto.action === ActionType.REJECT) {
             await this.prisma.orderRequest.updateMany({
                 where: { id: { in: dto.requestIds } },
                 data: { status: 'REJECTED' },
             });
-            return { message: 'Requests rejected', count: requests.length };
+            return { message: 'Requests rejected' };
         }
 
-        // กรณี APPROVE: สร้าง Order + ตัดสต็อก
         if (dto.action === ActionType.APPROVE) {
             return this.prisma.$transaction(async (tx) => {
-
-                // 1. คำนวณราคารวม
                 const totalPrice = requests.reduce((sum, req) => sum + Number(req.saleItem.price), 0);
 
-                // 2. สร้าง Order ใบใหญ่ 1 ใบ
+                // สร้าง Order ใหญ่
                 const order = await tx.order.create({
                     data: {
                         buyerId: firstBuyerId,
                         totalPrice: totalPrice,
-                        status: 'TO_PAY', // รอผู้ซื้อจ่ายเงิน
-
-                        // สร้าง OrderItems ย่อยข้างใน
+                        status: 'TO_PAY',
                         items: {
                             create: requests.map((req) => ({
                                 saleItemId: req.saleItemId,
-                                price: req.saleItem.price, // ล็อกราคา ณ ตอนขาย
+                                price: req.saleItem.price,
                                 quantity: 1,
                             })),
                         },
+                        orderRequests: {
+                            connect: dto.requestIds.map(id => ({ id }))
+                        }
                     },
                 });
 
-                // 3. อัปเดตสถานะ Request เป็น APPROVED และเชื่อมโยงกับ Order
+                // Update สถานะ Request
                 await tx.orderRequest.updateMany({
                     where: { id: { in: dto.requestIds } },
-                    data: {
-                        status: 'APPROVED',
-                        orderId: order.id, // เชื่อมโยงกลับไปบอกว่า Order นี้เกิดจาก Request ใบไหนบ้าง
-                    },
+                    data: { status: 'APPROVED' },
                 });
 
-                // 4. วนลูปตัดสต็อกสินค้าทีละชิ้น
+                // ตัดสต็อก
                 for (const req of requests) {
-                    // เช็คสต็อกอีกรอบเพื่อความชัวร์ (เผื่อ Transaction ชนกัน)
-                    if (req.saleItem.stock <= 0) {
-                        throw new BadRequestException(`Item "${req.saleItem.name}" is out of stock`);
-                    }
+                    if (req.saleItem.stock <= 0) throw new BadRequestException(`Item ${req.saleItem.name} out of stock`);
 
                     const updatedItem = await tx.saleItem.update({
                         where: { id: req.saleItemId },
                         data: { stock: { decrement: 1 } },
                     });
 
-                    // ถ้าสต็อกเหลือ 0 ให้ขึ้นป้าย Sold Out
                     if (updatedItem.stock <= 0) {
                         await tx.saleItem.update({
                             where: { id: req.saleItemId },
@@ -139,43 +106,23 @@ export class OrdersService {
                     }
                 }
 
-                return {
-                    message: 'Bundle order created successfully',
-                    orderId: order.id,
-                    totalPrice
-                };
+                return { message: 'Bundle order created', orderId: order.id };
             });
         }
     }
 
-    // =========================================================
-    // 3. Helper: ดูรายการขอซื้อ (Incoming Requests)
-    // =========================================================
     async getIncomingRequests(userId: string) {
-        // ค้นหา Request ที่สินค้าเป็นของฉัน และสถานะ PENDING
         return this.prisma.orderRequest.findMany({
-            where: {
-                saleItem: { post: { authorId: userId } },
-                status: 'PENDING'
-            },
-            include: {
-                buyer: { select: { id: true, username: true, avatarUrl: true } },
-                saleItem: { select: { id: true, name: true, price: true, imageUrl: true } }
-            },
+            where: { saleItem: { post: { authorId: userId } }, status: 'PENDING' },
+            include: { buyer: true, saleItem: true },
             orderBy: { createdAt: 'desc' }
         });
     }
 
-    // =========================================================
-    // 4. Helper: ดูรายการที่ฉันไปขอซื้อเขา (My Requests)
-    // =========================================================
     async getMyRequests(userId: string) {
         return this.prisma.orderRequest.findMany({
             where: { buyerId: userId },
-            include: {
-                saleItem: { select: { name: true, price: true, imageUrl: true } },
-                order: true // ดูด้วยว่า request นี้กลายเป็น order หรือยัง
-            },
+            include: { saleItem: true, order: true },
             orderBy: { createdAt: 'desc' }
         });
     }

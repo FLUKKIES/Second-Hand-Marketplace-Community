@@ -85,13 +85,14 @@ model User {
 // ==========================================
 
 model Category {
-    id   Int    @id @default(autoincrement())
-    name String
-    slug String @unique
-
-    parentId Int?
-    parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-    children Category[] @relation("CategoryHierarchy")
+    id            Int        @id @default(autoincrement())
+    name          String
+    slug          String     @unique
+    logoUrl       String? // เก็บ URL โลโก้ (เช่น ไอคอนมือถือ)
+    backgroundUrl String? // เก็บ URL ภาพพื้นหลัง (เผื่อทำแบนเนอร์สวยๆ)
+    parentId      Int?
+    parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+    children      Category[] @relation("CategoryHierarchy")
 
     posts Post[]
 
@@ -121,8 +122,9 @@ model Post {
     comments Comment[]
     likes    Like[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime?
 
     @@map("posts")
 }

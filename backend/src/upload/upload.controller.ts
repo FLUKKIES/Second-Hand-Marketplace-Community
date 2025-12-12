@@ -5,17 +5,24 @@ import { UploadService } from './upload.service'; // Import Service
 
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+    constructor(private readonly uploadService: UploadService) { }
 
-  @Post('avatar')
-  @UseInterceptors(FileInterceptor('file', multerOptions('avatars')))
-  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
-    return this.uploadService.handleUploadedFile(file, 'avatars');
-  }
+    @Post('avatar')
+    @UseInterceptors(FileInterceptor('file', multerOptions('avatars')))
+    async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'avatars');
+    }
 
-  @Post('post')
-  @UseInterceptors(FileInterceptor('file', multerOptions('posts')))
-  async uploadPostImage(@UploadedFile() file: Express.Multer.File) {
-    return this.uploadService.handleUploadedFile(file, 'posts');
-  }
+    @Post('post')
+    @UseInterceptors(FileInterceptor('file', multerOptions('posts')))
+    async uploadPostImage(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'posts');
+    }
+
+    // เพิ่มอันนี้: สำหรับรูปหมวดหมู่
+    @Post('category')
+    @UseInterceptors(FileInterceptor('file', multerOptions('categories'))) // เก็บใน uploads/categories
+    async uploadCategoryImage(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'categories');
+    }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Query, Delete } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -10,18 +10,26 @@ export class PostsController {
 
     @Post()
     @UseGuards(AuthGuard('jwt'))
-    create(@GetUser('userId') userId: string, @Body() createPostDto: CreatePostDto) {
+    create(@GetUser('sub') userId: string, @Body() createPostDto: CreatePostDto) {
         return this.postsService.create(userId, createPostDto);
     }
 
     @Get()
-    findAll() {
-        return this.postsService.findAll();
+    findAll(
+        @Query('type') type?: 'GENERAL' | 'SALE',
+        @Query('categoryId') categoryId?: string
+    ) {
+        return this.postsService.findAll({ type, categoryId });
     }
 
-    @Post(':id/like') // POST /posts/uuid-123/like
+    @Get(':id')
+    findOne(@Param('id') id: string) {
+        return this.postsService.findOne(id);
+    }
+
+    @Delete(':id')
     @UseGuards(AuthGuard('jwt'))
-    toggleLike(@Param('id') postId: string, @GetUser('sub') userId: string) {
-        return this.postsService.toggleLike(userId, postId);
+    remove(@Param('id') id: string, @GetUser('sub') userId: string) {
+        return this.postsService.remove(userId, id);
     }
 }
