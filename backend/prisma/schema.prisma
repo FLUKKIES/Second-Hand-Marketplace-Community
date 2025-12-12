@@ -61,12 +61,19 @@ model User {
     address     String? @db.Text
     phoneNumber String?
 
+    bankName    String? // ชื่อธนาคาร เช่น KBANK, SCB
+    bankAccount String? // เลขบัญชี
+    promptPay   String? // เบอร์โทร หรือ เลขบัตรปชช.
+
     posts    Post[]
     comments Comment[]
     likes    Like[]
 
     orders        Order[]        @relation("BuyerOrders")
     orderRequests OrderRequest[] // ที่ผู้ใช้เคยจอง
+
+    writtenReviews  Review[] @relation("WrittenReviews")
+    receivedReviews Review[] @relation("ReceivedReviews")
 
     // Chat Relations
     chatRoomsInitiated ChatRoom[] @relation("ChatInitiator")
@@ -242,10 +249,20 @@ model Order {
 
     items OrderItem[]
 
-    shippingAddress String? @db.Text
+    // --- NEW: Payment Process ---
+    // 1. Snapshot ข้อมูลคนขาย ณ เวลาที่สร้าง Order (กันคนขายเปลี่ยนเลขบัญชีทีหลัง)
+    paymentSnapshot Json?
+
+    // 2. หลักฐานการโอน (Buyer อัปโหลด)
+    paymentSlipUrl String?
+
+    paymentInfo    String? @db.Text // ข้อมูลบัญชีธนาคาร/PromptPay ที่ผู้ขายระบุตอน Approve
+    slipUrl        String? // สลิปโอนเงินที่ผู้ซื้ออัปโหลด
+    trackingNumber String? // เลขพัสดุที่ผู้ขายกรอกตอนส่ง
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    review    Review?
 
     @@map("orders")
 }
@@ -322,4 +339,26 @@ model ChatMessage {
     createdAt DateTime @default(now())
 
     @@map("chat_messages")
+}
+
+model Review {
+    id      String  @id @default(uuid())
+    rating  Int // 1-5 ดาว
+    comment String? @db.Text
+
+    // ใครเป็นคนเขียนรีวิว (Buyer)
+    reviewerId String
+    reviewer   User   @relation("WrittenReviews", fields: [reviewerId], references: [id])
+
+    // รีวิวให้ใคร (Seller)
+    targetId String
+    target   User   @relation("ReceivedReviews", fields: [targetId], references: [id])
+
+    // รีวิวจากออเดอร์ไหน (ป้องกันการปั่นรีวิว 1 ออเดอร์ 1 รีวิว)
+    orderId String @unique
+    order   Order  @relation(fields: [orderId], references: [id])
+
+    createdAt DateTime @default(now())
+
+    @@map("reviews")
 }

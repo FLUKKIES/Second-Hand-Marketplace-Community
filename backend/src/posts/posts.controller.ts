@@ -3,6 +3,7 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../auth/decorator/get-user.decorator';
+import { SearchPostDto } from './dto/search-post.dto';
 
 @Controller('posts')
 export class PostsController {
@@ -10,7 +11,7 @@ export class PostsController {
 
     @Post()
     @UseGuards(AuthGuard('jwt'))
-    create(@GetUser('sub') userId: string, @Body() createPostDto: CreatePostDto) {
+    create(@GetUser('userId') userId: string, @Body() createPostDto: CreatePostDto) {
         return this.postsService.create(userId, createPostDto);
     }
 
@@ -22,6 +23,11 @@ export class PostsController {
         return this.postsService.findAll({ type, categoryId });
     }
 
+    @Get('search')
+    search(@Query() dto: SearchPostDto) {
+        return this.postsService.search(dto);
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.postsService.findOne(id);
@@ -29,7 +35,7 @@ export class PostsController {
 
     @Delete(':id')
     @UseGuards(AuthGuard('jwt'))
-    remove(@Param('id') id: string, @GetUser('sub') userId: string) {
+    remove(@Param('id') id: string, @GetUser('userId') userId: string) {
         return this.postsService.remove(userId, id);
     }
 }

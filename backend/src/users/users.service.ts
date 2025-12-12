@@ -21,6 +21,9 @@ export class UsersService {
 				role: true,
 				address: true,
 				phoneNumber: true,
+                bankName: true,
+                bankAccount: true,
+                promptPay: true,
 				createdAt: true,
 			},
 		});
@@ -41,7 +44,10 @@ export class UsersService {
 				username: true,
 				bio: true,
 				address: true,
-				phoneNumber: true,
+                phoneNumber: true,
+                bankName: true,
+                bankAccount: true,
+                promptPay: true,
 			},
 		});
 		return user;

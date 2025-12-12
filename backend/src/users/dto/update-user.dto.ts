@@ -21,4 +21,16 @@ export class UpdateUserDto {
     @IsOptional()
     @IsString()
     phoneNumber?: string; // สำคัญสำหรับติดต่อ
+
+    @IsOptional()
+    @IsString()
+    bankName?: string; // เช่น KBANK, SCB
+
+    @IsOptional()
+    @IsString()
+    bankAccount?: string; // เลขบัญชี
+
+    @IsOptional()
+    @IsString()
+    promptPay?: string; // หมายเลขพร้อมเพย์
 }

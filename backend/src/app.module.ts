@@ -12,6 +12,8 @@ import { UploadModule } from './upload/upload.module';
 import { CommentsModule } from './comments/comments.module';
 import { OrdersModule } from './orders/orders.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ChatModule } from './chat/chat.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
     imports: [
@@ -32,7 +34,9 @@ import { CategoriesModule } from './categories/categories.module';
         UploadModule,
         CommentsModule,
         OrdersModule,
-        CategoriesModule
+        CategoriesModule,
+        ChatModule,
+        ReviewsModule
     ],
     controllers: [AppController],
     providers: [AppService],

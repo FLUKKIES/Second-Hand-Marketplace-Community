@@ -10,7 +10,7 @@ export class CommentsController {
 
     @Post()
     @UseGuards(AuthGuard('jwt'))
-    create(@GetUser('sub') userId: string, @Body() dto: CreateCommentDto) {
+    create(@GetUser('userId') userId: string, @Body() dto: CreateCommentDto) {
         return this.commentsService.create(userId, dto);
     }
 
@@ -21,7 +21,7 @@ export class CommentsController {
 
     @Delete(':id')
     @UseGuards(AuthGuard('jwt'))
-    remove(@Param('id') id: string, @GetUser('sub') userId: string) {
+    remove(@Param('id') id: string, @GetUser('userId') userId: string) {
         return this.commentsService.remove(userId, id);
     }
 }

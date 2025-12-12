@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
+import { SearchPostDto, SortOption } from './dto/search-post.dto';
 import * as fs from 'fs';
 import path from 'path';
 
@@ -163,6 +165,71 @@ export class PostsService {
                 // ถ้าลบไม่ได้ (เช่น ไฟล์ไม่มีอยู่จริง หรือติด permission) ก็ให้ข้ามไป ไม่ต้อง throw error ให้ User เห็น
                 console.error(`Failed to delete file: ${url}`, error);
             }
+        });
+    }
+
+    // =========================================================
+    // ฟังก์ชันค้นหาขั้นสูง (Advanced Search)
+    // =========================================================
+    async search(dto: SearchPostDto) {
+        const { keyword, categoryId, minPrice, maxPrice, sortBy } = dto;
+
+        // 1. สร้างเงื่อนไข Where (Filter)
+        const where: Prisma.PostWhereInput = {
+            deletedAt: null, // ต้องไม่ถูกลบ
+            type: 'SALE',    // (Optional) ปกติคนค้นหาของซื้อของขาย
+
+            // A. กรอง Category
+            categoryId: categoryId ? categoryId : undefined,
+
+            // B. กรอง Keyword (ค้นหาใน Content หรือ ชื่อสินค้า)
+            AND: [
+                keyword ? {
+                    OR: [
+                        { content: { contains: keyword, mode: 'insensitive' } }, // ค้นในโพสต์ (Case insensitive)
+                        {
+                            saleItems: {
+                                some: { name: { contains: keyword, mode: 'insensitive' } } // ค้นในชื่อสินค้า
+                            }
+                        }
+                    ]
+                } : {},
+
+                // C. กรองช่วงราคา (Price Range)
+                // หาโพสต์ที่มีสินค้า "อย่างน้อย 1 ชิ้น" อยู่ในช่วงราคานี้
+                (minPrice || maxPrice) ? {
+                    saleItems: {
+                        some: {
+                            price: {
+                                gte: minPrice || 0,           // มากกว่าหรือเท่ากับ
+                                lte: maxPrice || 99999999,    // น้อยกว่าหรือเท่ากับ
+                            }
+                        }
+                    }
+                } : {}
+            ]
+        };
+
+        // 2. สร้างเงื่อนไข OrderBy (Sorting)
+        let orderBy: Prisma.PostOrderByWithRelationInput = { createdAt: 'desc' }; // Default
+
+        if (sortBy === SortOption.OLDEST) {
+            orderBy = { createdAt: 'asc' };
+        } else if (sortBy === SortOption.POPULAR) {
+            orderBy = { likes: { _count: 'desc' } }; // เรียงตามจำนวนไลก์
+        }
+
+        // 3. Query Database
+        return this.prisma.post.findMany({
+            where,
+            orderBy,
+            include: {
+                author: { select: { id: true, username: true, avatarUrl: true } },
+                category: true,
+                images: true,
+                saleItems: true, // ดึงสินค้ามาโชว์ด้วย
+                _count: { select: { likes: true, comments: true } }
+            },
         });
     }
 }
