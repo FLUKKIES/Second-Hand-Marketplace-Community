@@ -3,31 +3,32 @@ import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePostDto, PostType } from './dto/create-post.dto';
 import { SearchPostDto, SortOption } from './dto/search-post.dto';
+import { OllamaService } from 'src/common/ollama/ollama.service';
 import * as fs from 'fs';
 import path from 'path';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private ollamaService: OllamaService
+    ) { }
 
-    // 1. สร้างโพสต์
-    async create(userId: string, dto: CreatePostDto) {
+        // 1. สร้างโพสต์
+        async create(userId: string, dto: CreatePostDto) {
         if (dto.type === PostType.SELLING && (!dto.products || dto.products.length === 0)) {
             throw new BadRequestException('Selling post must have at least one product');
         }
 
-        // ต้องมี groupId ถ้าจะลงกลุ่ม (หรือจะให้ลงหน้า Profile ส่วนตัวได้? Schema บังคับ groupId ไหม?
-        // ดู Schema: groupId String (Required). ดังนั้นต้องส่ง groupId มาเสมอ
         if (!dto.groupId) {
-             // In case validation failed or manual call
-             throw new BadRequestException('Group ID is required');
+            throw new BadRequestException('Group ID is required');
         }
 
         return await this.prisma.$transaction(async (tx) => {
             const post = await tx.post.create({
                 data: {
                     content: dto.content,
-                    type: dto.type as any, // Cast enum if needed
+                    type: dto.type as any,
                     authorId: userId,
                     groupId: dto.groupId!,
                     images: dto.imageUrls && dto.imageUrls.length > 0
@@ -36,38 +37,73 @@ export class PostsService {
                 },
             });
 
+            // Handle Product Creation with Embeddings
             if (dto.type === PostType.SELLING && dto.products && dto.products.length > 0) {
-                // Create multiple products
-                await tx.product.createMany({
-                    data: dto.products.map(p => ({
-                        postId: post.id,
-                        name: p.name,
-                        price: p.price,
-                        description: p.description,
-                        stock: p.stock,
-                    }))
-                });
+                // We create products one by one (or parallel) to get their IDs for embedding updates
+                await Promise.all(dto.products.map(async (p) => {
+                    // 1. Create Product
+                    const createdProduct = await tx.product.create({
+                        data: {
+                            postId: post.id,
+                            name: p.name,
+                            price: p.price,
+                            description: p.description,
+                            stock: p.stock,
+                        }
+                    });
+
+                    // 2. Generate Product Embedding
+                    try {
+                        const productText = `${p.name} ${p.description || ''}`;
+                        const embedding = await this.ollamaService.generateEmbedding(productText.trim());
+
+                        // 3. Update Product Embedding
+                        await tx.$executeRaw`
+                            UPDATE products 
+                            SET embedding = ${JSON.stringify(embedding)}::vector 
+                            WHERE id = ${createdProduct.id}
+                        `;
+                    } catch (e) {
+                        console.error(`Failed to generate embedding for product ${createdProduct.id}`, e);
+                        // Continue even if embedding fails
+                    }
+                }));
             }
 
-            // Return with relations
+            // *** Generate Post Embedding ***
+            try {
+                let textToEmbed = dto.content || '';
+                // Include product names in post embedding too for overall context
+                if (dto.products) {
+                    textToEmbed += ' ' + dto.products.map(p => `${p.name} ${p.description || ''}`).join(' ');
+                }
+
+                if (textToEmbed.trim()) {
+                    const embedding = await this.ollamaService.generateEmbedding(textToEmbed.trim());
+                    // Update vector column
+                    await tx.$executeRaw`UPDATE posts SET embedding = ${JSON.stringify(embedding)}::vector WHERE id = ${post.id}`;
+                }
+            } catch (e) {
+                console.error('Failed to generate embedding for post', e);
+            }
+
             return await tx.post.findUnique({
                 where: { id: post.id },
                 include: { products: true, images: true }
             })
-
-            return post;
         });
     }
 
     // 2. ดึง Feed (กรองตัวที่ Soft Delete ออก)
     async findAll(query: any) {
+        // ... (Original findAll logic if needed, but 'search' function covers search)
+        // Leaving this as is for simple feed
         const where: Prisma.PostWhereInput = {
-             deletedAt: null,
-             type: query.type,
-             groupId: query.groupId ? query.groupId : undefined, // Ensure undefined if not present to avoid type error
+            deletedAt: null,
+            type: query.type,
+            groupId: query.groupId ? query.groupId : undefined,
         }
 
-        // ถ้ากรอง Category ต้องเช็คผ่าน Group
         if (query.categoryId) {
             where.group = { categoryId: parseInt(query.categoryId) };
         }
@@ -107,7 +143,6 @@ export class PostsService {
 
     // 4. ลบโพสต์ (Soft Delete Logic)
     async remove(userId: string, postId: string) {
-        // 1. ดึงข้อมูลโพสต์ + รูปภาพทั้งหมด + Product
         const post = await this.prisma.post.findUnique({
             where: { id: postId },
             include: {
@@ -121,10 +156,8 @@ export class PostsService {
         if (!post) throw new NotFoundException('Post not found');
         if (post.authorId !== userId) throw new ForbiddenException('Not owner');
 
-        // 2. เช็คว่ามี Order หรือ Offer ที่ Accepted ไหม
         let hasActiveTransaction = false;
         if (post.products && post.products.length > 0) {
-            // Check ANY product for orders or accepted offers
             for (const product of post.products) {
                 if (product.orderItems.length > 0) {
                     hasActiveTransaction = true;
@@ -139,7 +172,6 @@ export class PostsService {
         }
 
         if (hasActiveTransaction) {
-            // === Case A: Soft Delete (มีคนซื้อแล้ว) ===
             await this.prisma.post.update({
                 where: { id: postId },
                 data: { deletedAt: new Date() },
@@ -147,21 +179,16 @@ export class PostsService {
             return { message: 'Post archived (Soft Deleted) because it has related transactions.' };
 
         } else {
-            // === Case B: Hard Delete (ยังไม่มีคนซื้อ) ===
             const filesToDelete: string[] = [];
 
-            // เก็บ URL จาก PostImage
             if (post.images && post.images.length > 0) {
                 post.images.forEach(img => filesToDelete.push(img.url));
             }
-            // Product ไม่มีรูปแยก ใช้รูปจาก PostImage (ถ้ามี logic แยกก็เพิ่มตรงนี้ได้)
 
-            // ลบ DB
             await this.prisma.post.delete({
                 where: { id: postId },
             });
 
-            // ลบไฟล์
             this.deleteFilesFromDisk(filesToDelete);
 
             return { message: 'Post and related data permanently deleted.' };
@@ -182,79 +209,131 @@ export class PostsService {
     }
 
     // =========================================================
-    // ฟังก์ชันค้นหาขั้นสูง (Advanced Search)
+    // ฟังก์ชันค้นหาขั้นสูง (Advanced Search) - Updated V.3 (With Deep Product Search)
     // =========================================================
     async search(dto: SearchPostDto) {
         const { keyword, categoryId, groupId, minPrice, maxPrice, sortBy } = dto;
 
-        // 1. สร้างเงื่อนไข Where
-        const where: Prisma.PostWhereInput = {
-            deletedAt: null,
-            // กรอง Group/Category
-            groupId: groupId ? groupId : undefined,
-            group: categoryId ? { categoryId: categoryId } : undefined,
+        // 1. ถ้าไม่มี Keyword ให้ใช้การหาแบบปกติ (Database Filter)
+        if (!keyword) {
+            return this.findAll(dto);
+        }
 
-            AND: []
-        };
-        // ใส่ AND แยกเพื่อให้ Type Check ง่ายขึ้น
-        const andConditions: Prisma.PostWhereInput[] = [];
+        // 2. *** Vector Search Logic ***
+        try {
+            // Generate Embedding จาก Ollama
+            const queryEmbedding = await this.ollamaService.generateEmbedding(keyword);
 
-        // Keyword Search
-        if (keyword) {
-            andConditions.push({
-                OR: [
-                    { content: { contains: keyword, mode: 'insensitive' } },
-                    { products: { some: { name: { contains: keyword, mode: 'insensitive' } } } }
-                ]
+            // แปลง Array เป็น String Format ที่ pgvector ชอบ: '[0.1,0.2,0.3]'
+            const vectorString = `[${queryEmbedding.join(',')}]`;
+
+            // --- เตรียม Conditions (ใช้ Prisma.sql เพื่อความปลอดภัย) ---
+
+            /* 
+               เนื่องจากเราต้อง Query 2 ตาราง (posts, products) และเอามารวมกัน
+               เราจะใช้ UNION หรือ 2 Queries ก็ได้
+               แต่เพื่อความง่ายและจัดการ Similarity Score เราจะแยก 2 Queries แล้วรวมใน Code
+            */
+
+            // Common Filters
+            // Note: Prisma.sql works best when composing parts.
+            // We can't reuse variables exactly strictly in Raw string without care, but simple valid SQL values are fine.
+
+            // Base Filters for POSTS
+            let postFilter = Prisma.sql`p."deletedAt" IS NULL AND p.embedding IS NOT NULL`;
+            if (groupId) postFilter = Prisma.sql`${postFilter} AND p."groupId" = ${groupId}`;
+            if (categoryId) postFilter = Prisma.sql`${postFilter} AND g."categoryId" = ${categoryId}`;
+
+            // Base Filters for PRODUCTS
+            let productFilter = Prisma.sql`p."deletedAt" IS NULL AND pd.embedding IS NOT NULL`;
+            if (groupId) productFilter = Prisma.sql`${productFilter} AND p."groupId" = ${groupId}`;
+            if (categoryId) productFilter = Prisma.sql`${productFilter} AND g."categoryId" = ${categoryId}`;
+            // Price filter applies to product search naturally, and to post search via JOIN
+            if (minPrice !== undefined) {
+                postFilter = Prisma.sql`${postFilter} AND pd.price >= ${minPrice}`;
+                productFilter = Prisma.sql`${productFilter} AND pd.price >= ${minPrice}`;
+            }
+            if (maxPrice !== undefined) {
+                postFilter = Prisma.sql`${postFilter} AND pd.price <= ${maxPrice}`;
+                productFilter = Prisma.sql`${productFilter} AND pd.price <= ${maxPrice}`;
+            }
+
+            // --- QUERY 1: Search in POSTS ---
+            const postResults = await this.prisma.$queryRaw`
+                SELECT 
+                    p.id, 
+                    1 - (p.embedding <=> ${vectorString}::vector) as similarity
+                FROM posts p
+                LEFT JOIN products pd ON p.id = pd."postId" 
+                LEFT JOIN groups g ON p."groupId" = g.id
+                WHERE ${postFilter}
+                GROUP BY p.id
+                ORDER BY similarity DESC
+                LIMIT 30;
+            ` as { id: string, similarity: number }[];
+
+            // --- QUERY 2: Search in PRODUCTS ---
+            // เราต้องการ Post ID กลับมา
+            const productResults = await this.prisma.$queryRaw`
+                SELECT 
+                    p.id as "postId",
+                    1 - (pd.embedding <=> ${vectorString}::vector) as similarity
+                FROM products pd
+                JOIN posts p ON pd."postId" = p.id
+                LEFT JOIN groups g ON p."groupId" = g.id
+                WHERE ${productFilter}
+                ORDER BY similarity DESC
+                LIMIT 30;
+            ` as { postId: string, similarity: number }[];
+
+            // 3. Merge Results
+            const combinedMap = new Map<string, number>();
+
+            // Add Post Results
+            postResults.forEach(r => {
+                combinedMap.set(r.id, r.similarity);
             });
-        }
 
-        // Price Range Search (Only for Selling posts with Product)
-        if (minPrice !== undefined || maxPrice !== undefined) {
-             andConditions.push({
-                 products: {
-                     some: {
-                         price: {
-                             gte: minPrice || 0,
-                             lte: maxPrice || 99999999
-                         }
-                     }
-                 }
-             });
-        }
-        
-        if (andConditions.length > 0) {
-            where.AND = andConditions;
-        }
+            // Add Product Results (take MAX score if exists)
+            productResults.forEach(r => {
+                const currentScore = combinedMap.get(r.postId) || 0;
+                if (r.similarity > currentScore) {
+                    combinedMap.set(r.postId, r.similarity);
+                }
+            });
 
-        // 2. Sort
-        let orderBy: Prisma.PostOrderByWithRelationInput = { createdAt: 'desc' };
+            // Convert to Array & Sort
+            const mergedResults = Array.from(combinedMap.entries())
+                .map(([id, similarity]) => ({ id, similarity }))
+                .sort((a, b) => b.similarity - a.similarity)
+                .slice(0, 50); // Final Limit
 
-        switch (sortBy) {
-            case SortOption.OLDEST:
-                orderBy = { createdAt: 'asc' };
-                break;
-            case SortOption.POPULAR:
-                orderBy = { likes: { _count: 'desc' } };
-                break;
-            // case SortOption.PRICE_ASC:
-            //     // 1-to-many: cannot sort parent by child field directly in this version
-            //     break;
-            // case SortOption.PRICE_DESC:
-            //     break;
+            if (mergedResults.length === 0) return [];
+
+            // 4. Fetch Full Data
+            const postIds = mergedResults.map(r => r.id);
+            const posts = await this.prisma.post.findMany({
+                where: { id: { in: postIds } },
+                include: {
+                    author: { select: { id: true, username: true, avatarUrl: true } },
+                    group: { select: { id: true, name: true, category: true } },
+                    images: true,
+                    products: true,
+                    _count: { select: { likes: true, comments: true } }
+                }
+            });
+
+            // 5. Final Sort (Ensure order matches similarity)
+            const postsWithScore = posts.map(post => {
+                const score = mergedResults.find(r => r.id === post.id)?.similarity || 0;
+                return { ...post, similarity: score };
+            });
+
+            return postsWithScore.sort((a, b) => b.similarity - a.similarity);
+
+        } catch (e) {
+            console.error('Vector search failed:', e);
+            return this.findAll(dto);
         }
-
-        // 3. Query
-        return this.prisma.post.findMany({
-            where,
-            orderBy,
-            include: {
-                author: { select: { id: true, username: true, avatarUrl: true } },
-                group: { select: { id: true, name: true, category: true } },
-                images: true,
-                products: true,
-                _count: { select: { likes: true, comments: true } }
-            },
-        });
     }
 }

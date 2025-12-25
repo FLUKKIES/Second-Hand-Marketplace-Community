@@ -28,20 +28,62 @@ CREATE TABLE "users" (
     "username" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "provider" "AuthProvider" NOT NULL DEFAULT 'LOCAL',
     "providerId" TEXT,
     "avatarUrl" TEXT,
     "bio" TEXT,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "phoneNumber" TEXT,
-    "address" TEXT,
-    "bankName" TEXT,
-    "bankAccount" TEXT,
-    "promptPay" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "addresses" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "label" TEXT NOT NULL DEFAULT 'Home',
+    "addressLine1" TEXT NOT NULL,
+    "addressLine2" TEXT,
+    "subDistrict" TEXT NOT NULL,
+    "district" TEXT NOT NULL,
+    "province" TEXT NOT NULL,
+    "postalCode" TEXT NOT NULL,
+    "phoneNumber" TEXT,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "addresses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "banks" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "officialName" TEXT NOT NULL,
+    "logoUrl" TEXT,
+
+    CONSTRAINT "banks_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bank_accounts" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "bankId" TEXT NOT NULL,
+    "accountNumber" TEXT NOT NULL,
+    "accountName" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "bank_accounts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -86,7 +128,7 @@ CREATE TABLE "posts" (
     "type" "PostType" NOT NULL DEFAULT 'NORMAL',
     "authorId" TEXT NOT NULL,
     "groupId" TEXT NOT NULL,
-    "embedding" vector(1536),
+    "embedding" vector(1024),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -112,7 +154,7 @@ CREATE TABLE "products" (
     "description" TEXT,
     "stock" INTEGER NOT NULL DEFAULT 1,
     "isSoldOut" BOOLEAN NOT NULL DEFAULT false,
-    "embedding" vector(1536),
+    "embedding" vector(1024),
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
 );
@@ -226,6 +268,9 @@ CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "banks_code_key" ON "banks"("code");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "categories_name_key" ON "categories"("name");
 
 -- CreateIndex
@@ -235,10 +280,16 @@ CREATE UNIQUE INDEX "categories_slug_key" ON "categories"("slug");
 CREATE UNIQUE INDEX "group_members_userId_groupId_key" ON "group_members"("userId", "groupId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "products_postId_key" ON "products"("postId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "reviews_orderId_key" ON "reviews"("orderId");
+
+-- AddForeignKey
+ALTER TABLE "addresses" ADD CONSTRAINT "addresses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bank_accounts" ADD CONSTRAINT "bank_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bank_accounts" ADD CONSTRAINT "bank_accounts_bankId_fkey" FOREIGN KEY ("bankId") REFERENCES "banks"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "groups" ADD CONSTRAINT "groups_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -314,12 +365,3 @@ ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_roomId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- สร้าง Index แบบ HNSW ด้วยมือ
-CREATE INDEX IF NOT EXISTS "post_embedding_index" 
-ON "posts" 
-USING hnsw ("embedding" vector_cosine_ops);
-
-CREATE INDEX IF NOT EXISTS "product_embedding_index" 
-ON "products" 
-USING hnsw ("embedding" vector_cosine_ops);

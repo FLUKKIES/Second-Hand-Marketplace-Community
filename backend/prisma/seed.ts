@@ -10,14 +10,36 @@ import {
 } from '@prisma/client'
 import slugify from 'slugify'
 
+import axios from 'axios'
+
 const connectionString = `${process.env.DATABASE_URL}`
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+// Helper for Embedding
+async function generateEmbedding(text: string): Promise<string | null> {
+    try {
+        const ollamaUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+        const url = ollamaUrl.endsWith('/api/embeddings') ? ollamaUrl : `${ollamaUrl}/api/embeddings`;
+
+        const response = await axios.post(url, {
+            model: 'bge-m3',
+            prompt: text,
+        });
+
+        const embedding = response.data.embedding;
+        return JSON.stringify(embedding); // Return as JSON string for pgvector
+    } catch (error) {
+        console.error(`⚠️ Failed to generate embedding: ${error.message}`);
+        return null; // Skip embedding if failed (e.g. Ollama distinct)
+    }
+}
+
 async function main() {
     console.log('🌱 Start seeding...')
 
+    // ... (Existing code for Banks, Users, Categories, Groups remains same)
     // 0. Seed Banks (Master Data)
     const banks = await Promise.all([
         prisma.bank.upsert({ where: { code: 'kbank' }, update: {}, create: { code: 'kbank', name: 'Kasikorn Bank', officialName: 'ธนาคารกสิกรไทย' } }),
@@ -181,6 +203,8 @@ async function main() {
     console.log('✅ Groups ready')
 
     // 4. Posts & Products
+    console.log('Generating embeddings for posts...')
+
     // Post 1: Selling iPhone (Alice)
     const iphonePost = await prisma.post.create({
         data: {
@@ -190,13 +214,13 @@ async function main() {
             groupId: mobileGroup.id,
             products: {
                 create: [
-                   {
+                    {
                         name: 'iPhone 14 Pro 128GB',
                         price: new Prisma.Decimal('28900.00'),
                         description: 'เครื่องไทย ประกันศูนย์ เหลืออุปกรณ์ครบชุด',
                         stock: 1,
                         isSoldOut: false,
-                   }
+                    }
                 ]
             },
             images: {
@@ -206,8 +230,15 @@ async function main() {
                 ]
             }
         },
-        include: { products: true } // Relation changed
+        include: { products: true }
     })
+
+    // Generate Embedding for iPhone Post
+    const iphoneText = `${iphonePost.content} ${iphonePost.products[0].name} ${iphonePost.products[0].description}`;
+    const iphoneEmbedding = await generateEmbedding(iphoneText);
+    if (iphoneEmbedding) {
+        await prisma.$executeRaw`UPDATE posts SET embedding = ${iphoneEmbedding}::vector WHERE id = ${iphonePost.id}`;
+    }
 
     // Post 2: Selling MacBook (Alice)
     const macbookPost = await prisma.post.create({
@@ -215,7 +246,7 @@ async function main() {
             content: 'MacBook Air M1 16GB/512GB ใช้งานถนอม',
             type: PostType.SELLING,
             authorId: alice.id,
-            groupId: generalGroup.id, // Group for Laptops? Or General
+            groupId: generalGroup.id,
             products: {
                 create: [
                     {
@@ -236,6 +267,13 @@ async function main() {
         include: { products: true }
     })
 
+    // Generate Embedding for MacBook Post
+    const macbookText = `${macbookPost.content} ${macbookPost.products[0].name} ${macbookPost.products[0].description}`;
+    const macbookEmbedding = await generateEmbedding(macbookText);
+    if (macbookEmbedding) {
+        await prisma.$executeRaw`UPDATE posts SET embedding = ${macbookEmbedding}::vector WHERE id = ${macbookPost.id}`;
+    }
+
     // Post 3: General Question (Bob)
     const helloPost = await prisma.post.create({
         data: {
@@ -252,10 +290,18 @@ async function main() {
             likes: {
                 create: { userId: alice.id }
             }
-        }
+        },
+        include: { products: true }
     })
 
-    console.log('✅ Posts & Products ready')
+    // Generate Embedding for Hello Post
+    const helloText = helloPost.content || '';
+    const helloEmbedding = await generateEmbedding(helloText);
+    if (helloEmbedding) {
+        await prisma.$executeRaw`UPDATE posts SET embedding = ${helloEmbedding}::vector WHERE id = ${helloPost.id}`;
+    }
+
+    console.log('✅ Posts & Products ready (with embeddings)')
 
     // 5. Offers (Negotiation)
     // Bob offers for MacBook
