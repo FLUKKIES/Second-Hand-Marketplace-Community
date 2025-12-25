@@ -1,14 +1,17 @@
 generator client {
-    provider     = "prisma-client-js"
-    moduleFormat = "cjs"
+    provider        = "prisma-client-js"
+    // เปิดใช้งานฟีเจอร์จัดการ Extension ของ Postgres
+    previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-    provider = "postgresql"
+    provider   = "postgresql"
+    // เปิดใช้งาน pgvector extension
+    extensions = [vector]
 }
 
 // ==========================================
-// 1. Enums
+// 1. Enums (Standardized Statuses)
 // ==========================================
 
 enum Role {
@@ -21,35 +24,43 @@ enum AuthProvider {
     GOOGLE
 }
 
-enum PostType {
-    GENERAL
-    SALE
+enum GroupRole {
+    MEMBER
+    ADMIN
 }
 
-enum OrderRequestStatus {
-    PENDING // ผู้ซื้อส่งคำขอซื้อ
-    APPROVING // ผู้ขายกำลังตรวจสอบ
-    APPROVED // ผู้ขายเลือกผู้ซื้อรายนี้
-    REJECTED // ผู้ขายปฏิเสธ
+enum PostType {
+    NORMAL
+    SELLING
+}
+
+enum OfferStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
 }
 
 enum OrderStatus {
-    TO_PAY // รอชำระเงิน
-    TO_SHIP // รอผู้ขายจัดส่ง
-    TO_RECEIVE // รอผู้ซื้อรับสินค้า
-    COMPLETED // สำเร็จ
-    CANCELLED // ยกเลิก
+    TO_PAY
+    TO_SHIP
+    TO_RECEIVE
+    COMPLETED
+    CANCELLED
 }
 
 // ==========================================
-// 2. User & Authentication
+// 2. User & Identity
 // ==========================================
 
 model User {
     id       String  @id @default(uuid())
-    email    String  @unique
     username String  @unique
+    email    String  @unique
     password String?
+
+    firstName String?
+    lastName  String?
 
     provider   AuthProvider @default(LOCAL)
     providerId String?
@@ -58,28 +69,28 @@ model User {
     bio       String?
     role      Role    @default(USER)
 
-    address     String? @db.Text
     phoneNumber String?
 
-    bankName    String? // ชื่อธนาคาร เช่น KBANK, SCB
-    bankAccount String? // เลขบัญชี
-    promptPay   String? // เบอร์โทร หรือ เลขบัตรปชช.
+    // Relations to separated tables
+    addresses    Address[]
+    bankAccounts BankAccount[]
 
-    posts    Post[]
+    groupMemberships GroupMember[]
+    posts            Post[]
+
+    offersMade    Offer[]
+    ordersBuying  Order[] @relation("BuyerOrders")
+    ordersSelling Order[] @relation("SellerOrders")
+
+    reviewsWritten  Review[] @relation("WrittenReviews")
+    reviewsReceived Review[] @relation("ReceivedReviews")
+
     comments Comment[]
     likes    Like[]
 
-    orders        Order[]        @relation("BuyerOrders")
-    orderRequests OrderRequest[] // ที่ผู้ใช้เคยจอง
-
-    writtenReviews  Review[] @relation("WrittenReviews")
-    receivedReviews Review[] @relation("ReceivedReviews")
-
-    // Chat Relations
-    chatRoomsInitiated ChatRoom[] @relation("ChatInitiator")
-    chatRoomsReceived  ChatRoom[] @relation("ChatRecipient")
-
-    sentMessages ChatMessage[]
+    chatInitiated ChatRoom[]    @relation("ChatInitiator")
+    chatReceived  ChatRoom[]    @relation("ChatRecipient")
+    messages      ChatMessage[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -87,97 +98,282 @@ model User {
     @@map("users")
 }
 
+model Address {
+    id String @id @default(uuid())
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    label        String  @default("Home") // Home, Office, etc.
+    addressLine1 String
+    addressLine2 String?
+    subDistrict  String // Tambon
+    district     String // Amphoe
+    province     String // Changwat
+    postalCode   String
+    phoneNumber  String? // Contact for this address
+
+    isDefault Boolean @default(false)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("addresses")
+}
+
+model Bank {
+    id           String  @id @default(uuid()) // Or use standard codes like '002' for BBL
+    name         String // Kasikorn Bank
+    code         String  @unique // kbank, scb, etc.
+    officialName String // ธนาคารกสิกรไทย
+    logoUrl      String?
+
+    accounts BankAccount[]
+
+    @@map("banks")
+}
+
+model BankAccount {
+    id String @id @default(uuid())
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    bankId String
+    bank   Bank   @relation(fields: [bankId], references: [id])
+
+    accountNumber String
+    accountName   String
+    isDefault     Boolean @default(false)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("bank_accounts")
+}
+
 // ==========================================
-// 3. Category (Hierarchical)
+// 3. Community Structure
 // ==========================================
 
 model Category {
-    id            Int        @id @default(autoincrement())
-    name          String
-    slug          String     @unique
-    logoUrl       String? // เก็บ URL โลโก้ (เช่น ไอคอนมือถือ)
-    backgroundUrl String? // เก็บ URL ภาพพื้นหลัง (เผื่อทำแบนเนอร์สวยๆ)
-    parentId      Int?
-    parent        Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-    children      Category[] @relation("CategoryHierarchy")
+    id       Int     @id @default(autoincrement())
+    name     String  @unique
+    slug     String  @unique
+    imageUrl String?
 
-    posts Post[]
+    groups Group[]
 
     createdAt DateTime @default(now())
 
     @@map("categories")
 }
 
+model Group {
+    id          String  @id @default(uuid())
+    name        String
+    description String? @db.Text
+    imageUrl    String?
+
+    categoryId Int
+    category   Category @relation(fields: [categoryId], references: [id])
+
+    members GroupMember[]
+    posts   Post[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("groups")
+}
+
+model GroupMember {
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    groupId String
+    group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+    role     GroupRole @default(MEMBER)
+    joinedAt DateTime  @default(now())
+
+    @@unique([userId, groupId])
+    @@map("group_members")
+}
+
 // ==========================================
-// 4. Post System
+// 4. Content (Post & Product Separation) + VECTOR SUPPORT
 // ==========================================
 
 model Post {
     id      String   @id @default(uuid())
-    content String   @db.Text
-    type    PostType @default(GENERAL)
+    content String?  @db.Text
+    type    PostType @default(NORMAL)
 
     authorId String
     author   User   @relation(fields: [authorId], references: [id])
 
-    categoryId Int?
-    category   Category? @relation(fields: [categoryId], references: [id])
+    groupId String
+    group   Group  @relation(fields: [groupId], references: [id])
 
-    images    PostImage[]
-    saleItems SaleItem[]
-
+    images   PostImage[]
     comments Comment[]
     likes    Like[]
+
+    products Product[]
+
+    // *** Vector Embedding Field ***
+    // ใช้ Unsupported เพราะ Prisma ยังไม่มี Native type สำหรับ vector
+    // ขนาด 1536 เหมาะสำหรับ OpenAI text-embedding-3-small
+    embedding Unsupported("vector(1536)")?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
     deletedAt DateTime?
 
+    // Index เพื่อการค้นหาที่รวดเร็ว (HNSW คือ Algorithm ที่นิยมใช้กับ Vector Search)
+    // @@index([embedding], name: "post_embedding_index", type: hnsw)
     @@map("posts")
 }
 
 model PostImage {
-    id  String @id @default(uuid())
-    url String
-
+    id     String @id @default(uuid())
+    url    String
     postId String
     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
     @@map("post_images")
 }
 
-model SaleItem {
-    id          String  @id @default(uuid())
-    name        String
-    price       Decimal @db.Decimal(10, 2)
-    description String?
-    imageUrl    String
-
-    stock     Int     @default(1)
-    isSoldOut Boolean @default(false)
-
+model Product {
+    id     String @id @default(uuid())
     postId String
     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-    // NEW: ผู้ซื้อหลายคนสามารถส่งคำขอได้
-    orderRequests OrderRequest[]
+    name        String
+    price       Decimal @db.Decimal(10, 2)
+    description String?
+    stock       Int     @default(1)
+    isSoldOut   Boolean @default(false)
 
-    // เมื่อถูก approve จะถูกใช้ใน order
+    // *** Vector Embedding Field ***
+    // แยก Embedding ของ Product ออกมาต่างหาก เพื่อให้ค้นหาสินค้าได้แม่นยำขึ้น
+    embedding Unsupported("vector(1536)")?
+
+    offers     Offer[]
     orderItems OrderItem[]
 
-    @@map("sale_items")
+    // Index สำหรับค้นหาสินค้า
+    // @@index([embedding], name: "product_embedding_index", type: hnsw)
+    @@map("products")
 }
 
 // ==========================================
-// 5. Social Features
+// 5. Negotiation (Offer System)
 // ==========================================
+
+model Offer {
+    id String @id @default(uuid())
+
+    buyerId String
+    buyer   User   @relation(fields: [buyerId], references: [id])
+
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+
+    offeredPrice Decimal @db.Decimal(10, 2)
+
+    buyerNote  String? @db.Text
+    sellerNote String? @db.Text
+
+    status OfferStatus @default(PENDING)
+
+    orderId String?
+    order   Order?  @relation(fields: [orderId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("offers")
+}
+
+// ==========================================
+// 6. Order & Transaction
+// ==========================================
+
+model Order {
+    id String @id @default(uuid())
+
+    buyerId String
+    buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
+
+    sellerId String
+    seller   User   @relation("SellerOrders", fields: [sellerId], references: [id])
+
+    totalPrice Decimal     @db.Decimal(10, 2)
+    status     OrderStatus @default(TO_PAY)
+
+    shippingAddress String @db.Text
+    paymentSnapshot Json
+
+    paymentSlipUrl String?
+    trackingNumber String?
+
+    items  OrderItem[]
+    offers Offer[]
+    review Review?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("orders")
+}
+
+model OrderItem {
+    id String @id @default(uuid())
+
+    orderId String
+    order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+
+    quantity Int     @default(1)
+    price    Decimal @db.Decimal(10, 2)
+
+    @@map("order_items")
+}
+
+// ==========================================
+// 7. Social
+// ==========================================
+
+model Review {
+    id      String  @id @default(uuid())
+    rating  Int
+    comment String? @db.Text
+
+    orderId String @unique
+    order   Order  @relation(fields: [orderId], references: [id])
+
+    reviewerId String
+    reviewer   User   @relation("WrittenReviews", fields: [reviewerId], references: [id])
+
+    targetId String
+    target   User   @relation("ReceivedReviews", fields: [targetId], references: [id])
+
+    createdAt DateTime @default(now())
+
+    @@map("reviews")
+}
 
 model Comment {
     id      String @id @default(uuid())
     content String @db.Text
 
     userId String
-    user   User   @relation(fields: [userId], references: [id])
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     postId String
     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -190,7 +386,7 @@ model Comment {
 
 model Like {
     userId String
-    user   User   @relation(fields: [userId], references: [id])
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     postId String
     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -202,111 +398,22 @@ model Like {
 }
 
 // ==========================================
-// 6. Order Request (จองสินค้า)
-// ==========================================
-
-model OrderRequest {
-    id String @id @default(uuid())
-
-    buyerId String
-    buyer   User   @relation(fields: [buyerId], references: [id])
-
-    saleItemId String
-    saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
-
-    status OrderRequestStatus @default(PENDING)
-
-    // เมื่อผู้ขาย approve → จะมี Order เกิดขึ้น
-    // เดิม: order Order?
-    // ใหม่: ผูก OrderId ลงไปในนี้แทน (แปลว่า Request นี้ถูกรวมอยู่ใน Order ไหน)
-    orderId String?
-    order   Order?  @relation(fields: [orderId], references: [id])
-
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
-    chatMessages ChatMessage[]
-
-    @@map("order_requests")
-}
-
-// ==========================================
-// 7. Order (ออเดอร์จริง หลังจาก approve)
-// ==========================================
-
-model Order {
-    id String @id @default(uuid())
-
-    // --- แก้ตรงนี้ 2: เอา orderRequestId ออก แล้วใส่เป็น List แทน ---
-    // orderRequestId String? @unique  <-- ลบบรรทัดนี้ทิ้ง
-    // orderRequest   OrderRequest?    <-- ลบบรรทัดนี้ทิ้ง
-    orderRequests OrderRequest[] // 1 Order มีได้หลาย Request
-
-    buyerId String
-    buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
-
-    totalPrice Decimal     @db.Decimal(10, 2)
-    status     OrderStatus @default(TO_PAY)
-
-    items OrderItem[]
-
-    // --- NEW: Payment Process ---
-    // 1. Snapshot ข้อมูลคนขาย ณ เวลาที่สร้าง Order (กันคนขายเปลี่ยนเลขบัญชีทีหลัง)
-    paymentSnapshot Json?
-
-    // 2. หลักฐานการโอน (Buyer อัปโหลด)
-    paymentSlipUrl String?
-
-    paymentInfo    String? @db.Text // ข้อมูลบัญชีธนาคาร/PromptPay ที่ผู้ขายระบุตอน Approve
-    slipUrl        String? // สลิปโอนเงินที่ผู้ซื้ออัปโหลด
-    trackingNumber String? // เลขพัสดุที่ผู้ขายกรอกตอนส่ง
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    review    Review?
-
-    @@map("orders")
-}
-
-model OrderItem {
-    id String @id @default(uuid())
-
-    orderId String
-    order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-    saleItemId String
-    saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
-
-    quantity Int     @default(1)
-    price    Decimal @db.Decimal(10, 2)
-
-    @@map("order_items")
-}
-
-// ==========================================
 // 8. Chat System
 // ==========================================
 
 model ChatRoom {
     id String @id @default(uuid())
 
-    // --- แก้ไข: ระบุตัวตน 2 คนชัดเจน (1-1 Only) ---
-
-    // คนที่ 1: คนเริ่มทัก (Initiator)
     initiatorId String
     initiator   User   @relation("ChatInitiator", fields: [initiatorId], references: [id])
 
-    // คนที่ 2: คนที่ถูกทัก (Recipient)
     recipientId String
     recipient   User   @relation("ChatRecipient", fields: [recipientId], references: [id])
 
     messages ChatMessage[]
 
-    updatedAt DateTime @updatedAt
     createdAt DateTime @default(now())
-
-    // Optional: ป้องกันไม่ให้คู่เดิมสร้างห้องซ้ำ (ถ้า A ทัก B ไปแล้ว จะทักซ้ำไม่ได้ ให้ไปใช้ห้องเดิม)
-    // แต่ต้องระวัง logic เรื่องสลับ A-B / B-A ในโค้ดด้วย
-    // @@unique([initiatorId, recipientId]) 
+    updatedAt DateTime @updatedAt
 
     @@map("chat_rooms")
 }
@@ -314,17 +421,14 @@ model ChatRoom {
 enum MessageType {
     TEXT
     IMAGE
-    ORDER_REQUEST
-    LOCATION
+    OFFER_SENT
     SYSTEM
 }
 
 model ChatMessage {
-    id String @id @default(uuid())
-
-    type MessageType @default(TEXT)
-
-    content  String? @db.Text
+    id       String      @id @default(uuid())
+    content  String?     @db.Text
+    type     MessageType @default(TEXT)
     metadata Json?
 
     roomId String
@@ -333,32 +437,7 @@ model ChatMessage {
     senderId String
     sender   User   @relation(fields: [senderId], references: [id])
 
-    orderRequestId String?
-    orderRequest   OrderRequest? @relation(fields: [orderRequestId], references: [id])
-
     createdAt DateTime @default(now())
 
     @@map("chat_messages")
-}
-
-model Review {
-    id      String  @id @default(uuid())
-    rating  Int // 1-5 ดาว
-    comment String? @db.Text
-
-    // ใครเป็นคนเขียนรีวิว (Buyer)
-    reviewerId String
-    reviewer   User   @relation("WrittenReviews", fields: [reviewerId], references: [id])
-
-    // รีวิวให้ใคร (Seller)
-    targetId String
-    target   User   @relation("ReceivedReviews", fields: [targetId], references: [id])
-
-    // รีวิวจากออเดอร์ไหน (ป้องกันการปั่นรีวิว 1 ออเดอร์ 1 รีวิว)
-    orderId String @unique
-    order   Order  @relation(fields: [orderId], references: [id])
-
-    createdAt DateTime @default(now())
-
-    @@map("reviews")
 }

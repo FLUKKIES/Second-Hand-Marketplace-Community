@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { join } from 'path';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -17,15 +18,16 @@ async function bootstrap() {
             }));
             return new BadRequestException({ errors: messages });
         },
-    }))
+    }));
 
-    // // --- เพิ่มตรงนี้เพื่อ Debug ---
-    // console.log('------------------------------------------------');
-    // console.log('Current Directory (__dirname):', __dirname);
-    // console.log('Current Directory (__dirname):', process.cwd());
-    // console.log('Target Public Path:', join(__dirname, '..', 'public'));
-    // console.log('------------------------------------------------');
-    // // ---------------------------
+    const config = new DocumentBuilder()
+        .setTitle('Social Mart API')
+        .setDescription('The Social Mart API description')
+        .setVersion('1.0')
+        .addBearerAuth()
+        .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
 
     await app.listen(process.env.PORT ?? 3001);
 }

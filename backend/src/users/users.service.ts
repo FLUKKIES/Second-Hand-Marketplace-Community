@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PrismaService } from 'src/database/prisma/prisma.service';
+import { PrismaService } from 'src/common/database/prisma/prisma.service';
+import { PostType } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -16,15 +17,19 @@ export class UsersService {
 				id: true,
 				email: true,
 				username: true,
+				firstName: true,
+				lastName: true,
 				avatarUrl: true,
 				bio: true,
 				role: true,
-				address: true,
 				phoneNumber: true,
-                bankName: true,
-                bankAccount: true,
-                promptPay: true,
 				createdAt: true,
+                addresses: true,
+                bankAccounts: {
+                    include: {
+                        bank: true
+                    }
+                }
 			},
 		});
 
@@ -42,12 +47,11 @@ export class UsersService {
 			select: {
 				id: true,
 				username: true,
+				firstName: true,
+				lastName: true,
 				bio: true,
-				address: true,
                 phoneNumber: true,
-                bankName: true,
-                bankAccount: true,
-                promptPay: true,
+                addresses: true,
 			},
 		});
 		return user;
@@ -60,13 +64,15 @@ export class UsersService {
 			select: {
 				id: true,
 				username: true,
+				firstName: true,
+				lastName: true,
 				avatarUrl: true,
 				bio: true,
 				createdAt: true,
 				// ไม่ส่ง email, address, phone ของเขาไปให้คนนอกเห็น (Privacy)
 				posts: {
 					take: 5, // แถมโพสต์ล่าสุด 5 อันให้ด้วย
-					where: { type: 'SALE' } // เฉพาะโพสต์ขายของ
+					where: { type: PostType.SELLING } // เฉพาะโพสต์ขายของ
 				}
 			},
 		});

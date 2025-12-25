@@ -3,7 +3,16 @@ import { IsOptional, IsString, MaxLength } from "class-validator";
 export class UpdateUserDto {
     @IsOptional()
     @IsString()
+    @IsString()
     username?: string
+
+    @IsOptional()
+    @IsString()
+    firstName?: string;
+
+    @IsOptional()
+    @IsString()
+    lastName?: string;
 
     @IsOptional()
     @IsString()
@@ -16,21 +25,5 @@ export class UpdateUserDto {
 
     @IsOptional()
     @IsString()
-    address?: string; // สำคัญสำหรับส่งของ
-
-    @IsOptional()
-    @IsString()
     phoneNumber?: string; // สำคัญสำหรับติดต่อ
-
-    @IsOptional()
-    @IsString()
-    bankName?: string; // เช่น KBANK, SCB
-
-    @IsOptional()
-    @IsString()
-    bankAccount?: string; // เลขบัญชี
-
-    @IsOptional()
-    @IsString()
-    promptPay?: string; // หมายเลขพร้อมเพย์
 }

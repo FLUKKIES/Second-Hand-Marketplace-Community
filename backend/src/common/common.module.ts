@@ -1,0 +1,21 @@
+import { Module, Global } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config'; // *เช็ค path ดีๆ หลังย้าย
+import { PrismaModule } from './database/prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { UploadModule } from './upload/upload.module';
+import { OllamaModule } from './ai/ollama/ollama.module';
+import { SearchModule } from './search/search.module';
+
+@Global() // ใส่ Global เพื่อให้ module อื่นเรียกใช้ service พวกนี้ได้เลยไม่ต้อง import ซ้ำ (Optional แต่แนะนำสำหรับ core)
+@Module({
+  imports: [
+    ConfigModule,
+    PrismaModule,
+    AuthModule,
+    UploadModule,
+    OllamaModule,
+    SearchModule,
+  ],
+  exports: [AuthModule, PrismaModule, UploadModule, OllamaModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
+})
+export class CommonModule {}

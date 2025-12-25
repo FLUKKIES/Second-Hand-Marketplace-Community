@@ -1,6 +1,6 @@
 services:
     postgres:
-        image: postgres:15
+        image: pgvector/pgvector:pg16
         container_name: marketplace-db
         restart: always
         env_file:
@@ -32,6 +32,17 @@ services:
             - pgadmin_data:/var/lib/pgadmin
         networks:
             - marketplace-network
+    
+    ollama:
+        image: ollama/ollama:latest
+        container_name: marketplace_ollama_ai
+        volumes:
+            - ollama_storage:/root/.ollama
+        ports:
+            - "11434:11434"
+        networks:
+            - marketplace-network
+    
 
     # backend:
     #     build: ./backend
@@ -73,6 +84,7 @@ services:
 volumes:
     pgdata:
     pgadmin_data:
+    ollama_storage:
 
 
 networks:
