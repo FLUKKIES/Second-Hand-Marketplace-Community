@@ -8,9 +8,11 @@ import { UsersModule } from './users/users.module';
 import { CommonModule } from './common/common.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { SocialModule } from './social/social.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
     imports: [
+        EventEmitterModule.forRoot(),
         ConfigModule.forRoot({
             isGlobal: true
         }),

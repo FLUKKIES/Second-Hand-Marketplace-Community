@@ -3,7 +3,7 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/auth/decorator/get-user.decorator';
-import { SearchPostDto } from './dto/search-post.dto';
+import { SearchPostDto } from 'src/common/search/dto/search-post.dto';
 
 @Controller('posts')
 export class PostsController {

@@ -4,12 +4,18 @@ import { CreateOfferDto } from './dto/create-offer.dto';
 import { OfferAction, RespondOfferDto } from './dto/respond-offer.dto';
 import { OfferStatus, OrderStatus } from '@prisma/client';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class OffersService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private eventEmitter: EventEmitter2
+    ) { }
 
     // 1. Make Offer
     async create(buyerId: string, dto: CreateOfferDto) {
+        // ... (validation checks) ...
         const product = await this.prisma.product.findUnique({
             where: { id: dto.productId },
             include: { post: true }
@@ -19,7 +25,6 @@ export class OffersService {
         if (product.post.authorId === buyerId) throw new BadRequestException('Cannot offer your own product');
         if (product.stock <= 0) throw new BadRequestException('Product is out of stock');
 
-        // Check duplications
         const existingOffer = await this.prisma.offer.findFirst({
             where: {
                 buyerId,
@@ -30,7 +35,7 @@ export class OffersService {
 
         if (existingOffer) throw new BadRequestException('You already have a pending offer for this product');
 
-        return this.prisma.offer.create({
+        const offer = await this.prisma.offer.create({
             data: {
                 buyerId,
                 productId: dto.productId,
@@ -40,6 +45,14 @@ export class OffersService {
             },
             include: { product: true }
         });
+
+        // EMIT EVENT: Offer Received (Notify Seller)
+        this.eventEmitter.emit('offer.received', {
+            sellerId: product.post.authorId,
+            offerId: offer.id
+        });
+
+        return offer;
     }
 
     // 2. Respond Offer (Accept/Reject)
@@ -54,32 +67,35 @@ export class OffersService {
         if (offer.status !== OfferStatus.PENDING) throw new BadRequestException('Offer is already processed');
 
         if (dto.action === OfferAction.REJECT) {
-            return this.prisma.offer.update({
+            const rejectedOffer = await this.prisma.offer.update({
                 where: { id: offerId },
                 data: {
                     status: OfferStatus.REJECTED,
                     sellerNote: dto.sellerNote
                 }
             });
+
+            // EMIT EVENT: Offer Rejected (Notify Buyer)
+            this.eventEmitter.emit('offer.rejected', {
+                buyerId: offer.buyerId,
+                offerId: offer.id
+            });
+
+            return rejectedOffer;
         }
 
         if (dto.action === OfferAction.ACCEPT) {
-            // Check stock again
             if (offer.product.stock <= 0) throw new BadRequestException('Product is out of stock now');
 
-            // Retrieve Seller Bank Info
             const seller = await this.prisma.user.findUnique({
                 where: { id: sellerId },
-                select: { 
+                select: {
                     username: true,
-                    bankAccounts: {
-                        include: { bank: true }
-                    }
+                    bankAccounts: { include: { bank: true } }
                 }
             });
 
-            // Select default or first
-             const bankAccount = seller?.bankAccounts.find(b => b.isDefault) || seller?.bankAccounts[0];
+            const bankAccount = seller?.bankAccounts.find(b => b.isDefault) || seller?.bankAccounts[0];
 
             if (!seller || !bankAccount) {
                 throw new BadRequestException('Please setup bank account before accepting offers');
@@ -110,7 +126,7 @@ export class OffersService {
                         sellerId: sellerId,
                         totalPrice: offer.offeredPrice,
                         status: OrderStatus.TO_PAY,
-                        shippingAddress: 'Please update shipping address', // This might need a flow update? Or fetch buyer default?
+                        shippingAddress: 'Please update shipping address',
                         paymentSnapshot: paymentSnapshot as any,
                         items: {
                             create: {
@@ -132,6 +148,13 @@ export class OffersService {
                         stock: { decrement: 1 },
                         isSoldOut: (offer.product.stock - 1) <= 0
                     }
+                });
+
+                // EMIT EVENT: Offer Accepted (Notify Buyer)
+                this.eventEmitter.emit('offer.accepted', {
+                    buyerId: offer.buyerId,
+                    offerId: offer.id,
+                    orderId: order.id
                 });
 
                 return order;

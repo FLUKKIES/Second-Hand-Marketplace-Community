@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UploadModule } from './upload/upload.module';
 import { OllamaModule } from './ollama/ollama.module';
 import { SearchModule } from './search/search.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Global() // ใส่ Global เพื่อให้ module อื่นเรียกใช้ service พวกนี้ได้เลยไม่ต้อง import ซ้ำ (Optional แต่แนะนำสำหรับ core)
 @Module({
@@ -18,4 +19,4 @@ import { SearchModule } from './search/search.module';
   ],
   exports: [AuthModule, PrismaModule, UploadModule, OllamaModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
 })
-export class CommonModule {}
+export class CommonModule { }

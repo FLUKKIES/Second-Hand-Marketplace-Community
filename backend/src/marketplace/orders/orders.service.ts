@@ -4,13 +4,18 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ConfirmPaymentDto } from './dto/order-action.dto';
 import { OrderStatus, Prisma } from '@prisma/client';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class OrdersService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private eventEmitter: EventEmitter2
+    ) { }
 
     // 1. Create Order (Buy Now)
     async createOrder(buyerId: string, dto: CreateOrderDto) {
-        // Find all products
+        // ... (validation logic same as before) ...
         const productIds = dto.items.map(i => i.productId);
         const products = await this.prisma.product.findMany({
             where: { id: { in: productIds } },
@@ -35,16 +40,15 @@ export class OrdersService {
         }
 
         // Group by Seller (Separate Order per Seller)
-        // Map<SellerId, Items[]>
         const ordersBySeller = new Map<string, typeof dto.items>();
 
         for (const item of dto.items) {
             const product = products.find(p => p.id === item.productId);
             if (product) {
                 const sellerId = product.post.authorId;
-            if (!ordersBySeller.has(sellerId)) {
-                ordersBySeller.set(sellerId, []);
-            }
+                if (!ordersBySeller.has(sellerId)) {
+                    ordersBySeller.set(sellerId, []);
+                }
                 ordersBySeller.get(sellerId)?.push(item);
             }
         }
@@ -84,25 +88,21 @@ export class OrdersService {
                 // Get Seller Bank Info for Snapshot
                 const seller = await tx.user.findUnique({
                     where: { id: sellerId },
-                    select: { 
+                    select: {
                         username: true,
-                        bankAccounts: {
-                            include: { bank: true }
-                        }
+                        bankAccounts: { include: { bank: true } }
                     }
                 });
 
                 if (!seller) throw new NotFoundException('Seller not found');
 
-                // Select default bank account or first one
                 const bankAccount = seller.bankAccounts.find(b => b.isDefault) || seller.bankAccounts[0];
-                
-                // Construct snapshot (fallback to empty if no bank account - though usually should validate)
+
                 const paymentSnapshot = {
                     sellerName: seller.username,
                     bankName: bankAccount ? bankAccount.bank.name : '',
                     bankAccount: bankAccount ? bankAccount.accountNumber : '',
-                    promptPay: '' // PromptPay logic might need to be added to BankAccount model or verified
+                    promptPay: ''
                 };
 
                 // Create Order
@@ -114,12 +114,16 @@ export class OrdersService {
                         status: OrderStatus.TO_PAY,
                         shippingAddress: dto.shippingAddress,
                         paymentSnapshot: paymentSnapshot as any,
-                        items: {
-                            create: orderItemsData
-                        }
+                        items: { create: orderItemsData }
                     }
                 });
                 createdOrders.push(order);
+
+                // EMIT EVENT: Order Created (Notify Seller)
+                this.eventEmitter.emit('order.created', {
+                    sellerId,
+                    orderId: order.id
+                });
             }
 
             return createdOrders;
@@ -134,13 +138,21 @@ export class OrdersService {
         if (order.buyerId !== buyerId) throw new ForbiddenException('Not your order');
         if (order.status !== OrderStatus.TO_PAY) throw new BadRequestException('Order status is not TO_PAY');
 
-        return this.prisma.order.update({
+        const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: {
                 status: OrderStatus.TO_SHIP,
                 paymentSlipUrl: dto.slipUrl,
             },
         });
+
+        // EMIT EVENT: Order Paid (Notify Seller)
+        this.eventEmitter.emit('order.paid', {
+            sellerId: order.sellerId,
+            orderId: order.id
+        });
+
+        return updatedOrder;
     }
 
     // 3. Seller Ship
@@ -151,10 +163,18 @@ export class OrdersService {
         if (order.sellerId !== sellerId) throw new ForbiddenException('Not your order');
         if (order.status !== OrderStatus.TO_SHIP) throw new BadRequestException('Order is not ready to ship');
 
-        return this.prisma.order.update({
+        const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status: OrderStatus.TO_RECEIVE },
         });
+
+        // EMIT EVENT: Order Shipped (Notify Buyer)
+        this.eventEmitter.emit('order.shipped', {
+            buyerId: order.buyerId,
+            orderId: order.id
+        });
+
+        return updatedOrder;
     }
 
     // 4. Buyer Receive
@@ -165,23 +185,28 @@ export class OrdersService {
         if (order.buyerId !== buyerId) throw new ForbiddenException('Not your order');
 
         if (order.status !== OrderStatus.TO_RECEIVE) {
-            // Actually, in some flows, we might skip TO_RECEIVE state if not strictly enforced. 
-            // But let's assume standard flow: Pay -> Ship -> Receive -> Complete.
-            // If it's TO_SHIP, buyer can't receive yet? Or maybe they can if looking at physical item.
-            // Let's restrict to TO_RECEIVE for now.
-             if (![OrderStatus.TO_SHIP, OrderStatus.TO_RECEIVE].includes(order.status as any)) {
-                 throw new BadRequestException('Order cannot be completed at this stage');
-             }
+            if (![OrderStatus.TO_SHIP, OrderStatus.TO_RECEIVE].includes(order.status as any)) {
+                throw new BadRequestException('Order cannot be completed at this stage');
+            }
         }
 
-        return this.prisma.order.update({
+        const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status: OrderStatus.COMPLETED },
         });
+
+        // EMIT EVENT: Order Completed (Notify Seller)
+        this.eventEmitter.emit('order.completed', {
+            sellerId: order.sellerId,
+            orderId: order.id
+        });
+
+        return updatedOrder;
     }
 
     // 5. Cancel Order
     async cancelOrder(userId: string, orderId: string) {
+        // ... (cancel logic) ...
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: { items: true }
@@ -199,13 +224,11 @@ export class OrdersService {
         }
 
         return this.prisma.$transaction(async (tx) => {
-            // Update Status
             await tx.order.update({
                 where: { id: orderId },
                 data: { status: OrderStatus.CANCELLED },
             });
 
-            // Restock
             for (const item of order.items) {
                 await tx.product.update({
                     where: { id: item.productId },
@@ -215,6 +238,14 @@ export class OrdersService {
                     }
                 });
             }
+
+            // EMIT EVENT: Order Cancelled (Notify the OTHER party)
+            const targetUserId = isBuyer ? order.sellerId : order.buyerId;
+            this.eventEmitter.emit('order.cancelled', {
+                targetUserId,
+                orderId: order.id,
+                cancelledBy: isBuyer ? 'BUYER' : 'SELLER'
+            });
 
             return { message: 'Order cancelled and stock restored' };
         });

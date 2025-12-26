@@ -6,5 +6,6 @@ import { PrismaModule } from 'src/common/database/prisma/prisma.module';
 @Module({
   imports: [OllamaModule, PrismaModule],
   providers: [SearchService],
+  exports: [SearchService],
 })
-export class SearchModule {}
+export class SearchModule { }

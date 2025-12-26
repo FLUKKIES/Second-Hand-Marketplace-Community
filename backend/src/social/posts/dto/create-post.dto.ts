@@ -22,6 +22,10 @@ export class CreateProductDto {
     @IsNumber()
     @Min(1)
     stock: number;
+
+    @IsOptional()
+    @IsString()
+    imageUrl?: string;
 }
 
 export class CreatePostDto {

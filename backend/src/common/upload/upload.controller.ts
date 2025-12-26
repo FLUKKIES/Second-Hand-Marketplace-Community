@@ -25,4 +25,16 @@ export class UploadController {
     async uploadCategoryImage(@UploadedFile() file: Express.Multer.File) {
         return this.uploadService.handleUploadedFile(file, 'categories');
     }
+
+    @Post('product')
+    @UseInterceptors(FileInterceptor('file', multerOptions('products'))) // เก็บใน uploads/products
+    async uploadProductImage(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'products');
+    }
+
+    @Post('slip')
+    @UseInterceptors(FileInterceptor('file', multerOptions('slips'))) // เก็บใน uploads/slips
+    async uploadSlipImage(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'slips');
+    }
 }
