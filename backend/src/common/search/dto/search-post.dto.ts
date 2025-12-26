@@ -37,4 +37,8 @@ export class SearchPostDto {
     @IsOptional()
     @IsEnum(SortOption)
     sortBy?: SortOption = SortOption.LATEST; // Default เป็นใหม่สุด
+
+    @IsOptional()
+    @IsString()
+    type?: 'NORMAL' | 'SELLING';
 }

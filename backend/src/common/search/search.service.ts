@@ -12,7 +12,7 @@ export class SearchService {
     ) { }
 
     async searchPosts(dto: SearchPostDto) {
-        const { keyword, categoryId, groupId, minPrice, maxPrice } = dto;
+        const { keyword, categoryId, groupId, minPrice, maxPrice, type } = dto;
 
         if (!keyword) {
             return null; // Let the caller handle non-search cases
@@ -29,11 +29,13 @@ export class SearchService {
             let postFilter = Prisma.sql`p."deletedAt" IS NULL AND p.embedding IS NOT NULL`;
             if (groupId) postFilter = Prisma.sql`${postFilter} AND p."groupId" = ${groupId}`;
             if (categoryId) postFilter = Prisma.sql`${postFilter} AND g."categoryId" = ${categoryId}`;
+            if (type) postFilter = Prisma.sql`${postFilter} AND p."type"::text = ${type}`;
 
             // Base Filters for PRODUCTS
             let productFilter = Prisma.sql`p."deletedAt" IS NULL AND pd.embedding IS NOT NULL`;
             if (groupId) productFilter = Prisma.sql`${productFilter} AND p."groupId" = ${groupId}`;
             if (categoryId) productFilter = Prisma.sql`${productFilter} AND g."categoryId" = ${categoryId}`;
+            if (type) productFilter = Prisma.sql`${productFilter} AND p."type"::text = ${type}`;
 
             if (minPrice !== undefined) {
                 postFilter = Prisma.sql`${postFilter} AND pd.price >= ${minPrice}`;
