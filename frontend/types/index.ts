@@ -1,7 +1,45 @@
+export interface Address {
+    id: string;
+    label: string;
+    addressLine1: string;
+    addressLine2: string | null;
+    subDistrict: string;
+    district: string;
+    province: string;
+    postalCode: string;
+    phoneNumber: string;
+    isDefault: boolean;
+}
+
+export interface Bank {
+    id: number;
+    name: string;
+    code: string;
+    logoUrl: string;
+}
+
+export interface BankAccount {
+    id: string;
+    bankId: number;
+    accountNumber: string;
+    accountName: string;
+    bank: Bank;
+}
+
 export interface User {
     id: string;
     username: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    bio?: string;
+    phoneNumber?: string;
     avatarUrl: string | null;
+    createdAt?: string;
+    addresses?: Address[];
+    bankAccounts?: BankAccount[];
+    role?: string;
 }
 
 export interface Category {

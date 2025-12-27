@@ -1,30 +1,25 @@
 "use client"
 
+
+
 import { Home, ShoppingBag, Users, Bookmark, Settings, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect } from "react";
 
 const navItems = [
     { name: "Feed", icon: Home, href: "/" },
-    { name: "Marketplace", icon: ShoppingBag, href: "/marketplace" },
+    { name: "Categories", icon: ShoppingBag, href: "/marketplace" },
     { name: "Groups", icon: Users, href: "/groups" },
     { name: "Saved", icon: Bookmark, href: "/saved" },
     { name: "Settings", icon: Settings, href: "/settings" },
 ];
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export function LeftSidebar() {
     const pathname = usePathname();
-    const [user, setUser] = useState<any>(null);
-
-    useEffect(() => {
-        // user profile
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-    }, []);
+    const { user } = useAuth();
 
     return (
         <div className="space-y-6">
@@ -36,7 +31,11 @@ export function LeftSidebar() {
                         <AvatarFallback>{user.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate">{user.username}</h3>
+                        <h3 className="font-semibold text-sm truncate">
+                            {user.firstName && user.lastName 
+                                ? `${user.firstName} ${user.lastName}` 
+                                : user.fullName || user.username}
+                        </h3>
                         <p className="text-xs text-muted-foreground">@{user.username}</p>
                     </div>
                 </div>
@@ -55,8 +54,8 @@ export function LeftSidebar() {
                 </div>
             )}
 
-            {/* Navigation */}
-            <nav className="bg-white rounded-xl p-2 shadow-sm border border-gray-100">
+            {/* Main Navigation */}
+            <nav className="bg-white rounded-xl p-2 shadow-sm border border-gray-100 space-y-1">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (

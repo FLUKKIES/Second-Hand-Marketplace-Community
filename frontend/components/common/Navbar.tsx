@@ -1,7 +1,22 @@
+"use client";
+
 import Link from "next/link";
-import { Search, ShoppingBag, Bell, User, Menu, ChevronDown, MessageCircle } from "lucide-react";
+import { Search, ShoppingBag, Bell, User, Menu, ChevronDown, MessageCircle, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Settings } from "lucide-react";
 
 export function Navbar() {
+  const { user, loading, logout } = useAuth();
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-surface/80 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -41,12 +56,61 @@ export function Navbar() {
              <button className="text-muted-foreground hover:text-foreground">
                 <ShoppingBag size={22} />
              </button>
-             <button className="flex items-center gap-2 pl-4 border-l">
-                 <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden ring-2 ring-transparent hover:ring-indigo-100 transition-all">
-                    {/* Avatar Placeholder */}
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia" alt="User" className="w-full h-full object-cover" />
+             
+             {loading ? (
+                <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+             ) : user ? (
+                 <DropdownMenu>
+                     <DropdownMenuTrigger asChild>
+                         <button className="flex items-center gap-3 pl-4 border-l outline-none">
+                             <div className="text-right hidden lg:block">
+                                <p className="text-sm font-medium text-foreground">
+                                    {user.firstName && user.lastName 
+                                        ? `${user.firstName} ${user.lastName}` 
+                                        : user.fullName || user.username}
+                                </p>
+                                <p className="text-xs text-muted-foreground">@{user.username}</p>
+                             </div>
+                             <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden ring-2 ring-transparent hover:ring-indigo-100 transition-all">
+                                <Avatar className="w-full h-full">
+                                    <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} />
+                                    <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                             </div>
+                         </button>
+                     </DropdownMenuTrigger>
+                     <DropdownMenuContent align="end" className="w-56">
+                         <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuItem className="cursor-pointer" asChild>
+                             <Link href={`/profile/${user.username}`}>
+                                <User className="mr-2 h-4 w-4" />
+                                <span>Profile</span>
+                             </Link>
+                         </DropdownMenuItem>
+                         <DropdownMenuItem className="cursor-pointer" asChild>
+                             <Link href="/settings/account">
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>Settings</span>
+                             </Link>
+                         </DropdownMenuItem>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600 cursor-pointer">
+                             <LogOut className="mr-2 h-4 w-4" />
+                             <span>Log out</span>
+                         </DropdownMenuItem>
+                     </DropdownMenuContent>
+                 </DropdownMenu>
+             ) : (
+                 <div className="flex items-center gap-2 pl-4 border-l">
+                    <Link href="/login">
+                        <Button variant="ghost" size="sm">Log in</Button>
+                    </Link>
+                    <Link href="/register">
+                        <Button size="sm">Sign up</Button>
+                    </Link>
                  </div>
-             </button>
+             )}
         </div>
 
          {/* Mobile Menu */}

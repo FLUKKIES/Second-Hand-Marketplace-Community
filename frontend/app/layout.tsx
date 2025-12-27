@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { cn } from "@/lib/utils"
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -18,13 +20,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${outfit.variable} antialiased bg-background text-foreground font-sans min-h-screen`}
-      >
-        <div className="flex flex-col min-h-screen">
-            {children}
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", outfit.variable)}>
+        <AuthProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <div className="flex-1">{children}</div>
+            </div>
+        </AuthProvider>
       </body>
     </html>
   );
