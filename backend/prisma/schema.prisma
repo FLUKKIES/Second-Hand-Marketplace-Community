@@ -38,6 +38,8 @@ enum OfferStatus {
     PENDING
     ACCEPTED
     REJECTED
+    COUNTER_OFFERED
+    EXPIRED
     CANCELLED
 }
 
@@ -71,6 +73,8 @@ model User {
 
     phoneNumber String?
 
+    acceptedTermsAt DateTime?
+
     // Relations to separated tables
     addresses    Address[]
     bankAccounts BankAccount[]
@@ -95,6 +99,7 @@ model User {
     createdAt     DateTime       @default(now())
     updatedAt     DateTime       @updatedAt
     notifications Notification[]
+    // messageReactions MessageReaction[]
 
     @@map("users")
 }
@@ -171,10 +176,11 @@ model Category {
 }
 
 model Group {
-    id          String  @id @default(uuid())
-    name        String
-    description String? @db.Text
-    imageUrl    String?
+    id            String  @id @default(uuid())
+    name          String
+    description   String? @db.Text
+    imageUrl      String?
+    backgroundUrl String?
 
     categoryId Int
     category   Category @relation(fields: [categoryId], references: [id])
@@ -288,6 +294,14 @@ model Offer {
 
     buyerNote  String? @db.Text
     sellerNote String? @db.Text
+
+    // Counter-offer fields
+    counterPrice Decimal? @db.Decimal(10, 2)
+    counterNote  String?  @db.Text
+    counterCount Int      @default(0)
+
+    // Expiration
+    expiresAt DateTime?
 
     status OfferStatus @default(PENDING)
 
@@ -417,6 +431,10 @@ model ChatRoom {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    // Prevent duplicate rooms
+    @@unique([initiatorId, recipientId])
+    @@index([initiatorId])
+    @@index([recipientId])
     @@map("chat_rooms")
 }
 
@@ -439,7 +457,11 @@ model ChatMessage {
     senderId String
     sender   User   @relation(fields: [senderId], references: [id])
 
+    isRead Boolean   @default(false)
+    readAt DateTime?
+
     createdAt DateTime @default(now())
+    // messageReactions MessageReaction[]
 
     @@map("chat_messages")
 }

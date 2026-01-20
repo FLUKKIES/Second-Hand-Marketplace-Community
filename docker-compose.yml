@@ -32,7 +32,7 @@ services:
             - pgadmin_data:/var/lib/pgadmin
         networks:
             - marketplace-network
-    
+
     ollama:
         image: ollama/ollama:latest
         container_name: marketplace_ollama_ai
@@ -42,7 +42,6 @@ services:
             - "11434:11434"
         networks:
             - marketplace-network
-    
 
     # backend:
     #     build: ./backend
@@ -78,6 +77,34 @@ services:
     #         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     #     depends_on:
     #         - backend
+    #     networks:
+    #         - marketplace-network
+
+    # nginx:
+    #     image: nginx:alpine
+    #     container_name: marketplace-nginx
+    #     volumes:
+    #         - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    #     ports:
+    #         - "8080:80" # เผื่ออยากเทสผ่าน localhost:8080
+    #     extra_hosts:
+    #         - "host.docker.internal:host-gateway"
+    #     networks:
+    #         - marketplace-network
+
+    # # 2. แก้ Ngrok ให้ยิงไปหา Nginx (Port 80) แค่รูเดียว
+    # ngrok:
+    #     image: ngrok/ngrok:latest
+    #     container_name: ngrok-tunnel
+    #     command:
+    #         - "http"
+    #         - "nginx:80" # ชี้ไปที่ container nginx พอร์ต 80
+    #     environment:
+    #         NGROK_AUTHTOKEN: 37cL3fBh4NU3Vr9TdHKsxPhQcr0_6WD9V3QqRMYHL2qhLhGhQ
+    #     ports:
+    #         - 4040:4040
+    #     depends_on:
+    #         - nginx
     #     networks:
     #         - marketplace-network
 

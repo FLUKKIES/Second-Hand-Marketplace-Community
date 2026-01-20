@@ -12,17 +12,11 @@ function CallbackContent() {
     const hasLogged = useRef(false);
 
     useEffect(() => {
-        const token = searchParams.get("token");
-        if (token) {
-            if (!hasLogged.current) {
-                hasLogged.current = true;
-                login(token);
-            }
-        } else {
-             // Handle error or redirect to login
-             router.push("/login?error=Google_Auth_Failed");
+        if (!hasLogged.current) {
+            hasLogged.current = true;
+            login();
         }
-    }, [searchParams, login, router]);
+    }, [login]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">

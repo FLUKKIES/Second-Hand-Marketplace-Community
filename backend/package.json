@@ -30,15 +30,18 @@
         "@nestjs/passport": "^11.0.5",
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/platform-socket.io": "^11.1.9",
+        "@nestjs/schedule": "^6.1.0",
         "@nestjs/serve-static": "^5.0.4",
         "@nestjs/swagger": "^11.2.3",
         "@nestjs/websockets": "^11.1.9",
         "@prisma/adapter-pg": "^7.1.0",
         "@prisma/client": "^7.2.0",
+        "@types/cookie-parser": "^1.4.10",
         "argon2": "^0.44.0",
         "axios": "^1.13.2",
         "class-transformer": "^0.5.1",
         "class-validator": "^0.14.3",
+        "cookie-parser": "^1.4.7",
         "dotenv": "^17.2.3",
         "fs": "0.0.1-security",
         "multer": "^2.0.2",
@@ -102,5 +105,5 @@
         "coverageDirectory": "../coverage",
         "testEnvironment": "node"
     },
-    "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6"
+    "packageManager": "pnpm@10.27.0+sha512.72d699da16b1179c14ba9e64dc71c9a40988cbdc65c264cb0e489db7de917f20dcf4d64d8723625f2969ba52d4b7e2a1170682d9ac2a5dcaeaab732b7e16f04a"
 }

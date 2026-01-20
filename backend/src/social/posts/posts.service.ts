@@ -121,11 +121,16 @@ export class PostsService {
             deletedAt: null,
             type: query.type,
             groupId: query.groupId ? query.groupId : undefined,
+            authorId: query.authorId ? query.authorId : undefined,
         }
 
         if (query.categoryId) {
             where.group = { categoryId: parseInt(query.categoryId) };
         }
+
+        const page = parseInt(query.page) || 1;
+        const limit = parseInt(query.limit) || 5;
+        const skip = (page - 1) * limit;
 
         return this.prisma.post.findMany({
             where,
@@ -137,26 +142,36 @@ export class PostsService {
                 _count: { select: { likes: true, comments: true } }
             },
             orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: skip,
         });
     }
 
     // 3. ดูรายละเอียด (กรอง Soft Delete)
-    async findOne(id: string) {
+    async findOne(id: string, userId?: string) {
         const post = await this.prisma.post.findUnique({
             where: { id },
             include: {
                 author: { select: { id: true, username: true, avatarUrl: true } },
                 group: { select: { id: true, name: true, category: true } },
                 images: true,
-                products: true,
+                products: {
+                    include: {
+                        // If userId is provided, check if I made an offer
+                        offers: userId ? {
+                            where: { buyerId: userId, status: 'PENDING' } // Check pending offers primarily
+                        } : false
+                    }
+                },
                 comments: { include: { user: true } },
                 _count: { select: { likes: true } }
             },
         });
 
-        if (!post || post.deletedAt) {
-            throw new NotFoundException('Post not found or has been deleted');
+        if (!post) {
+            throw new NotFoundException('Post not found');
         }
+        // Allow deleted posts to be returned (frontend will handle strict display)
         return post;
     }
 

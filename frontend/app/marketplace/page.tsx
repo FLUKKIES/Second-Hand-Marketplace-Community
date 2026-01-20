@@ -25,8 +25,8 @@ export default function MarketplacePage() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const res = await api.get<Category[]>('/categories');
-                setCategories(res.data);
+                const categories = await api.get<Category[]>('/categories');
+                setCategories(categories);
             } catch (error) {
                 console.error("Failed to fetch categories:", error);
             } finally {
@@ -41,7 +41,7 @@ export default function MarketplacePage() {
         <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
             <Navbar />
 
-            <main className="flex-1 container pt-6 px-4 md:px-6 overflow-hidden">
+            <main className="flex-1 container pt-4 px-2 md:px-2 overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 align-start h-full">
                     
                     {/* Left Sidebar */}
@@ -52,25 +52,28 @@ export default function MarketplacePage() {
                     {/* Main Content */}
                     <div className="md:col-span-9 lg:col-span-9 flex flex-col gap-6 h-full overflow-y-auto pb-20 scrollbar-hide">
                         {/* Header */}
-                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 relative overflow-hidden">
-                             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                             <div className="relative z-10">
-                                <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                                    <ShoppingBag className="text-indigo-600" size={32} />
-                                    Categories
-                                </h1>
-                                <p className="text-gray-500 max-w-2xl text-lg">
-                                    Explore diverse communities and find products tailored to your interests.
-                                </p>
-                             </div>
-                        </div>
+                         {/* Header */}
+                         <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100 relative overflow-hidden flex flex-col justify-center min-h-[200px]">
+                              <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-50/80 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                              <div className="relative z-10 max-w-3xl">
+                                 <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                                     <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                                         <ShoppingBag size={32} />
+                                     </div>
+                                     Categories
+                                 </h1>
+                                 <p className="text-gray-500 text-lg leading-relaxed">
+                                     Explore diverse communities and find products tailored to your interests. Joins groups, buy and sell items, and connect with people like you.
+                                 </p>
+                              </div>
+                         </div>
 
                         {/* Categories Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {categories.map((category) => (
                                 <Link 
                                     key={category.id} 
-                                    href={`/category/${category.id}`}
+                                    href={`/category/${category.slug}`}
                                     className="group bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-100 transition-all flex flex-col items-center text-center cursor-pointer"
                                 >
                                     <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-indigo-600">

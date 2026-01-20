@@ -1,70 +1,96 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-
 import { User } from "@/types";
+import { ConsentModal } from "@/components/auth/ConsentModal";
 
 interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-    login: (token: string) => void;
-    logout: () => void;
-    fetchUser: () => Promise<void>;
+  user: User | null;
+  setUser: (user: User | null) => void;
+  loading: boolean;
+  login: () => Promise<void>;
+  logout: () => void;
+  fetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-    const fetchUser = useCallback(async () => {
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-            const res = await api.get<User>("/users/me"); 
-            setUser(res.data);
-        } catch (error) {
-            console.error("Failed to fetch user", error);
-            logout();
-        } finally {
-            setLoading(false);
-        }
-    }, [router]);
+  useEffect(() => {
+    fetchUser();
+  }, []);
 
-    useEffect(() => {
-        fetchUser();
-    }, [fetchUser]);
+  const fetchUser = useCallback(async () => {
+    try {
+      const user = await api.get<User>("/users/me");
+      setUser(user);
+    } catch (error) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const login = useCallback((token: string) => {
-        localStorage.setItem("token", token);
-        fetchUser(); 
+  // useEffect(() => {
+  //     if (!loading) return; // Don't fetch if still initial loading
+  //     fetchUser();
+  // }, [fetchUser, loading]);
+
+  const login = useCallback(async () => {
+    // We fetch the user first to know their role
+    try {
+      const user = await api.get<User>("/users/me");
+      setUser(user);
+
+      if (user?.role === "ADMIN") {
+        router.push("/admin");
+      } else {
         router.push("/");
-    }, [fetchUser, router]);
+      }
+    } catch (err) {
+      console.error("Login fetch user failed", err);
+      // Fallback if something goes wrong
+      router.push("/");
+    }
+  }, [router]);
 
-    const logout = useCallback(() => {
-        localStorage.removeItem("token");
-        setUser(null);
-        router.push("/login");
-    }, [router]);
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+    setUser(null);
+    router.push("/login");
+  }, [router]);
 
-    return (
-        <AuthContext.Provider value={{ user, loading, login, logout, fetchUser }}>
-            {children}
-        </AuthContext.Provider>
-    );
+  return (
+    <AuthContext.Provider
+      value={{ user, setUser, loading, login, logout, fetchUser }}
+    >
+      {children}
+      <ConsentModal />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error("useAuth must be used within an AuthProvider");
-    }
-    return context;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }

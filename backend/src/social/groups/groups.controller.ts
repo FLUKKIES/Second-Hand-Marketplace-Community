@@ -1,8 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/auth/decorator/get-user.decorator';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupsService } from './groups.service';
+import { RolesGuard } from 'src/common/auth/guards/roles.guard';
+import { Roles } from 'src/common/auth/decorator/roles.decorator';
 
 @Controller('groups')
 export class GroupsController {
@@ -40,5 +43,19 @@ export class GroupsController {
     @UseGuards(AuthGuard('jwt'))
     leave(@Param('id') groupId: string, @GetUser('userId') userId: string) {
         return this.groupsService.leaveGroup(userId, groupId);
+    }
+
+    @Patch(':id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN')
+    update(@Param('id') id: string, @Body() dto: UpdateGroupDto) {
+        return this.groupsService.update(id, dto);
+    }
+
+    @Delete(':id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles('ADMIN')
+    remove(@Param('id') id: string) {
+        return this.groupsService.remove(id);
     }
 }

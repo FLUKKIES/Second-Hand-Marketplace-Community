@@ -23,13 +23,14 @@ export class UsersService {
 				bio: true,
 				role: true,
 				phoneNumber: true,
+				acceptedTermsAt: true,
 				createdAt: true,
-                addresses: true,
-                bankAccounts: {
-                    include: {
-                        bank: true
-                    }
-                }
+				addresses: true,
+				bankAccounts: {
+					include: {
+						bank: true
+					}
+				}
 			},
 		});
 
@@ -50,11 +51,20 @@ export class UsersService {
 				firstName: true,
 				lastName: true,
 				bio: true,
-                phoneNumber: true,
-                addresses: true,
+				phoneNumber: true,
+				addresses: true,
 			},
 		});
 		return user;
+	}
+
+	async acceptTerms(userId: string) {
+		return this.prisma.user.update({
+			where: { id: userId },
+			data: {
+				acceptedTermsAt: new Date()
+			}
+		});
 	}
 
 	// 3. ดูโปรไฟล์คนอื่น (Public Profile - เช่น ดูคนขาย)

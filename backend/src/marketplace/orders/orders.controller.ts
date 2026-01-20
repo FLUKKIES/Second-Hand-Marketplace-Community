@@ -1,9 +1,9 @@
-import { Controller, Post, Body, UseGuards, Get, Patch, Param} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Patch, Param } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/auth/decorator/get-user.decorator';
-import { ConfirmPaymentDto } from './dto/order-action.dto';
+import { ConfirmPaymentDto, ShipOrderDto } from './dto/order-action.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('orders')
@@ -39,9 +39,10 @@ export class OrdersController {
     @Patch(':id/ship') // PATCH /orders/uuid/ship
     markAsShipped(
         @Param('id') orderId: string,
-        @GetUser('userId') userId: string
+        @GetUser('userId') userId: string,
+        @Body() dto: ShipOrderDto
     ) {
-        return this.ordersService.markAsShipped(userId, orderId);
+        return this.ordersService.markAsShipped(userId, orderId, dto);
     }
 
     // 3. ผู้ซื้อกดรับสินค้า

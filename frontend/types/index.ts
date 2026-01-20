@@ -12,19 +12,21 @@ export interface Address {
 }
 
 export interface Bank {
-    id: number;
+    id: string;
     name: string;
     code: string;
-    logoUrl: string;
+    logoUrl: string | null;
 }
 
 export interface BankAccount {
     id: string;
-    bankId: number;
+    bankId: string;
     accountNumber: string;
     accountName: string;
     bank: Bank;
 }
+
+export * from './notification';
 
 export interface User {
     id: string;
@@ -40,6 +42,7 @@ export interface User {
     addresses?: Address[];
     bankAccounts?: BankAccount[];
     role?: string;
+    acceptedTermsAt?: string | null;
 }
 
 export interface Category {
@@ -53,7 +56,16 @@ export interface Category {
 export interface Group {
     id: string;
     name: string;
+    description: string | null;
+    imageUrl: string | null;
+    backgroundUrl: string | null;
+    categoryId: number;
     category: Category;
+    createdAt?: string;
+    _count?: {
+        members: number;
+        posts: number;
+    };
 }
 
 export interface PostImage {
@@ -71,6 +83,7 @@ export interface Product {
     stock: number;
     isSoldOut: boolean;
     imageUrl: string | null;
+    offers?: any[];
 }
 
 export type PostType = 'NORMAL' | 'SELLING';

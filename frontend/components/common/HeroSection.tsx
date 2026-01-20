@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 const ANNOUNCEMENTS = [
     {
         id: 1,
-        title: "Welcome to Social Mart",
+        title: "Welcome to Group Mart",
         description: "The best place to buy and sell with your community.",
         image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1774&q=80",
         color: "from-blue-600 via-indigo-600 to-purple-600"
@@ -50,14 +50,13 @@ export function HeroSection() {
     return (
         <div className="relative w-full h-48 md:h-64 rounded-3xl overflow-hidden shadow-lg mb-6 group shrink-0 bg-gray-900 z-0">
             {ANNOUNCEMENTS.map((slide, index) => (
-                <div 
+                <div
                     key={slide.id}
-                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                        index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
-                    }`}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
+                        }`}
                 >
                     {/* Background Image with Overlay */}
-                    <div 
+                    <div
                         className="absolute inset-0 bg-cover bg-center"
                         style={{ backgroundImage: `url(${slide.image})` }}
                     />
@@ -78,13 +77,13 @@ export function HeroSection() {
             ))}
 
             {/* Navigation Arrows */}
-            <button 
+            <button
                 onClick={prevSlide}
                 className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/40 transition-all opacity-0 group-hover:opacity-100"
             >
                 <ChevronLeft size={24} />
             </button>
-            <button 
+            <button
                 onClick={nextSlide}
                 className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/40 transition-all opacity-0 group-hover:opacity-100"
             >
@@ -95,11 +94,10 @@ export function HeroSection() {
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
                 {ANNOUNCEMENTS.map((_, index) => (
                     <button
-                        key={index}
+                        key={index} 
                         onClick={() => setCurrentSlide(index)}
-                        className={`w-2 h-2 rounded-full transition-all ${
-                            index === currentSlide ? "bg-white w-6" : "bg-white/50 hover:bg-white/80"
-                        }`}
+                        className={`w-2 h-2 rounded-full transition-all ${index === currentSlide ? "bg-white w-6" : "bg-white/50 hover:bg-white/80"
+                            }`}
                     />
                 ))}
             </div>

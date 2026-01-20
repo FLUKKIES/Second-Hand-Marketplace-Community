@@ -3,36 +3,35 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShoppingBag } from "lucide-react";
 
+import { AuthNavbar } from "@/components/common/AuthNavbar";
+
 export default function LoginPage() {
     const router = useRouter();
-    const { login } = useAuth();
+    const { login, loading } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-        setLoading(true);
+        setIsLoading(true);
 
         try {
-            const res = await api.post("/auth/signin", { email, password });
-            if (res.data.access_token) {
-                login(res.data.access_token);
-                // AuthContext login handles redirect, but we can double check or let it handle
-            }
-        } catch (err: any) {
+            await api.post("/auth/signin", { email, password });
+            await login();
+        } catch (err) {
             console.error("Login failed", err);
-            setError(err.response?.data?.message || "Invalid credentials");
+            setError(getErrorMessage(err) || "Invalid credentials");
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -42,8 +41,10 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex flex-col min-h-screen bg-gray-50/50">
+            <AuthNavbar />
+            <div className="flex-1 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+                <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center text-indigo-600">
                     <ShoppingBag size={48} />
                 </div>
@@ -156,5 +157,6 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    </div>
     );
 }

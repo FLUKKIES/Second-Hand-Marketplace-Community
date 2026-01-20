@@ -8,7 +8,7 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 export class UsersController {
     constructor(
         private readonly usersService: UsersService
-    ) {}
+    ) { }
 
     // ============================
     // Private Routes (ต้อง Login)
@@ -16,7 +16,7 @@ export class UsersController {
 
     @UseGuards(AuthGuard('jwt'))
     @Get('me')
-    getMe(@GetUser('userId') userId: string) { 
+    getMe(@GetUser('userId') userId: string) {
         return this.usersService.getMe(userId)
     }
 
@@ -29,11 +29,17 @@ export class UsersController {
         return this.usersService.updateMe(userId, dto);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('me/consent')
+    acceptTerms(@GetUser('userId') userId: string) {
+        return this.usersService.acceptTerms(userId);
+    }
+
     // ============================
     // Public Routes (ใครก็ดูได้)
     // ============================
 
-    @Get(':username') 
+    @Get(':username')
     getProfile(@Param('username') username: string) {
         return this.usersService.getPublicProfile(username);
     }

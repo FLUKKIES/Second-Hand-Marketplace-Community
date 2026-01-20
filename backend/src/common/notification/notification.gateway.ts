@@ -5,9 +5,9 @@ import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
     cors: {
-        origin: '*', // Adjust in production
+        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        credentials: true
     },
-    namespace: 'notifications'
 })
 @Injectable()
 export class NotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -22,20 +22,30 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     async handleConnection(client: Socket) {
         try {
             // Validate Token
-            // Expected format: Authorization: Bearer <token>
-            // In Socket.IO common pattern is query param or handshake auth
-            const token = client.handshake.auth.token || client.handshake.query.token;
+            // Try to get from Header or Cookie (same as ChatGateway)
+            let token = client.handshake.headers.authorization?.split(' ')[1];
+
+            if (!token && client.handshake.headers.cookie) {
+                const cookies = client.handshake.headers.cookie.split(';').reduce((acc, cookie) => {
+                    const [key, value] = cookie.trim().split('=');
+                    acc[key] = value;
+                    return acc;
+                }, {} as any);
+                token = cookies['access_token'];
+            }
+
+            // Fallback to query/auth for flexibility
+            if (!token) {
+                token = client.handshake.auth.token || client.handshake.query.token;
+            }
 
             if (!token) {
-                // client.disconnect();
-                // return;
-                // For dev/test ease, we sometimes skip auth or handle it gracefully
-                console.log('Client connected without token:', client.id);
+                // console.log('Client connected without token:', client.id);
                 return;
             }
 
             const payload = this.jwtService.verify(token);
-            const userId = payload.sub; // Assuming 'sub' is userId
+            const userId = payload.sub;
 
             // Register Socket
             if (!this.userSockets.has(userId)) {
@@ -43,14 +53,14 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
             }
             this.userSockets.get(userId)?.push(client);
 
-            // Join Room (Optional, but useful for broadcast to user)
+            // Join Room for personal notifications
             client.join(`user_${userId}`);
 
-            console.log(`User ${userId} connected: ${client.id}`);
+            // console.log(`User ${userId} connected to Notifications: ${client.id}`);
 
         } catch (e) {
-            console.error('Socket Connection Error:', e.message);
-            client.disconnect();
+            // console.error('Notification Socket Connection Error:', e.message);
+            // client.disconnect();
         }
     }
 

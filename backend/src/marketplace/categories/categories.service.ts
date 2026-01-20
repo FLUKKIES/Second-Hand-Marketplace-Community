@@ -44,6 +44,15 @@ export class CategoriesService {
         return category;
     }
 
+    async findBySlug(slug: string) {
+        const category = await this.prisma.category.findUnique({
+            where: { slug },
+            include: { groups: true }
+        });
+        if (!category) throw new NotFoundException('Category not found');
+        return category;
+    }
+
     // อัปเดตหมวดหมู่
     async update(id: number, dto: CreateCategoryDto) {
         // อาจจะต้องทำ logic เช็ค slug ซ้ำอีกทีถ้ามีการเปลี่ยนชื่อ
@@ -56,5 +65,27 @@ export class CategoriesService {
                 imageUrl: dto.logoUrl
             }
         })
+    }
+
+    async remove(id: number) {
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Find groups in this category
+            const groups = await tx.group.findMany({ where: { categoryId: id }, select: { id: true } });
+            const groupIds = groups.map(g => g.id);
+
+            if (groupIds.length > 0) {
+                // 2. Check for active posts in those groups
+                const postCount = await tx.post.count({ where: { groupId: { in: groupIds } } });
+                if (postCount > 0) {
+                    throw new BadRequestException(`Cannot delete category because it contains ${postCount} active posts in its groups.`);
+                }
+
+                // 3. Delete groups (members cascade automatically via schema)
+                await tx.group.deleteMany({ where: { categoryId: id } });
+            }
+
+            // 4. Delete category
+            return tx.category.delete({ where: { id } });
+        });
     }
 }

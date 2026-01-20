@@ -1,142 +1,226 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { api } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
+// Types corresponding to backend UpdateUserDto
 const accountFormSchema = z.object({
-    firstName: z.string().min(2, "First name must be at least 2 characters."),
-    lastName: z.string().min(2, "Last name must be at least 2 characters."),
-    bio: z.string().max(300, "Bio must not be longer than 300 characters.").optional(),
-    phoneNumber: z.string().optional(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  bio: z.string().max(160, "Bio must be less than 160 characters").optional(),
 });
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
 export default function AccountSettingsPage() {
-    const { user, login } = useAuth(); // getting login to refresh user data if needed
-    const [isLoading, setIsLoading] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+  const { user, setUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-    const form = useForm<AccountFormValues>({
-        resolver: zodResolver(accountFormSchema),
-        defaultValues: {
-            firstName: "",
-            lastName: "",
-            bio: "",
-            phoneNumber: "",
-        },
-    });
+  const form = useForm<AccountFormValues>({
+    resolver: zodResolver(accountFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      bio: "",
+    },
+  });
 
-    // Load user data into form
-    useEffect(() => {
-        if (user) {
-            form.reset({
-                firstName: user.firstName || "",
-                lastName: user.lastName || "",
-                bio: user.bio || "",
-                phoneNumber: user.phoneNumber || "",
-            });
-        }
-    }, [user, form]);
-
-    const onSubmit = async (data: AccountFormValues) => {
-        setIsLoading(true);
-        setSuccessMessage("");
-        try {
-            const res = await api.patch("/users/me", data);
-            
-            // Optimistically update the user context or re-fetch
-            // For now we might just want to show success
-            // In a real app we would update the global auth state:
-            // login(res.data.token); // if token is refreshed, or just re-fetch user
-            
-            // Reload user data to reflect changes in Navbar etc.
-            window.location.reload(); 
-
-        } catch (error) {
-            console.error("Failed to update profile", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    if (!user) {
-        return <div>Loading user data...</div>;
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        bio: user.bio || "",
+      });
     }
+  }, [user, form]);
 
-    return (
-        <div className="max-w-2xl">
-            <h2 className="text-xl font-semibold mb-6">Account Information</h2>
-            
-            <div className="mb-8 flex items-center gap-6">
-                <Avatar className="h-20 w-20">
-                     <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} />
-                     <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <Button variant="outline" size="sm" disabled>Change Avatar</Button>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        JPG, GIF or PNG. 1MB max. (Coming soon)
-                    </p>
-                </div>
+  const onSubmit = async (data: AccountFormValues) => {
+    setIsLoading(true);
+    try {
+      const res = await api.patch("/users/me", data);
+
+      // Optimistically update local user state or re-fetch
+      if (user) {
+        setUser({ ...user, ...data });
+      }
+
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Failed to update profile", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const avatarUrl = await api.uploadImage(file, "avatar");
+
+      // Update user profile with new avatar URL
+      await api.patch("/users/me", { avatarUrl });
+
+      if (user) {
+        setUser({ ...user, avatarUrl });
+      }
+
+      toast.success("Avatar updated successfully");
+    } catch (error) {
+      console.error("Failed to upload avatar", error);
+      toast.error("Failed to upload avatar");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Details</CardTitle>
+          <CardDescription>
+            Update your personal information and public profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-8 mb-8">
+            <div className="flex flex-col items-center gap-4">
+              <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
+                <AvatarImage
+                  src={api.getImageUrl(user?.avatarUrl)}
+                  className="object-cover"
+                />
+                <AvatarFallback className="text-2xl bg-indigo-100 text-indigo-600">
+                  {user?.firstName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <input
+                  type="file"
+                  id="avatar-upload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white"
+                  onClick={() =>
+                    document.getElementById("avatar-upload")?.click()
+                  }
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
+                  Change Avatar
+                </Button>
+              </div>
             </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="firstName">First name</Label>
-                        <Input id="firstName" placeholder="John" {...form.register("firstName")} />
-                        {form.formState.errors.firstName && (
-                            <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="lastName">Last name</Label>
-                        <Input id="lastName" placeholder="Doe" {...form.register("lastName")} />
-                        {form.formState.errors.lastName && (
-                            <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea 
-                        id="bio" 
-                        placeholder="Tell us a little bit about yourself" 
-                        className="resize-none min-h-[100px]"
-                        {...form.register("bio")} 
+            <div className="flex-1">
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                     <p className="text-xs text-muted-foreground text-right">
-                        {form.watch("bio")?.length || 0}/300
-                    </p>
-                    {form.formState.errors.bio && (
-                        <p className="text-sm text-red-500">{form.formState.errors.bio.message}</p>
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="bio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bio</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Tell us a little about yourself"
+                            className="resize-none min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                </div>
+                  />
 
-                 <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
-                    <Input id="phoneNumber" placeholder="0812345678" {...form.register("phoneNumber")} />
-                </div>
-
-                <div className="pt-4">
+                  <div className="flex justify-end">
                     <Button type="submit" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Update Profile
+                      {isLoading && (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      )}
+                      Save Changes
                     </Button>
-                </div>
-            </form>
-        </div>
-    );
+                  </div>
+                </form>
+              </Form>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

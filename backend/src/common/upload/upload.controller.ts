@@ -37,4 +37,16 @@ export class UploadController {
     async uploadSlipImage(@UploadedFile() file: Express.Multer.File) {
         return this.uploadService.handleUploadedFile(file, 'slips');
     }
+
+    @Post('group/profile')
+    @UseInterceptors(FileInterceptor('file', multerOptions('groups/profiles')))
+    async uploadGroupProfile(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'groups/profiles');
+    }
+
+    @Post('group/cover')
+    @UseInterceptors(FileInterceptor('file', multerOptions('groups/covers')))
+    async uploadGroupCover(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'groups/covers');
+    }
 }
