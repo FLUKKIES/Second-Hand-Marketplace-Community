@@ -29,7 +29,7 @@ export const multerOptions = (folder: string) => {
 
         // 2. File Filter: อนุญาตเฉพาะไฟล์รูปภาพ
         fileFilter: (req: any, file: any, cb: any) => {
-            if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+            if (file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
                 // ถ้าเป็นรูปภาพ -> ผ่าน
                 cb(null, true);
             } else {
@@ -38,9 +38,8 @@ export const multerOptions = (folder: string) => {
             }
         },
 
-        // 3. Limits: จำกัดขนาดไฟล์ (เช่น ไม่เกิน 5MB)
         limits: {
-            fileSize: 5 * 1024 * 1024, // 5 MB
+            fileSize: 10 * 1024 * 1024,
         },
     };
 };

@@ -115,15 +115,24 @@ export function MakeOfferButton({
               Checking requirements...
             </div>
           ) : !hasAddress ? (
-            <Alert className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800 dark:text-orange-200">
-                You need to add a shipping address before making offers.{" "}
-                <a href="/settings/address" className="underline font-medium">
-                  Add address
-                </a>
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-4">
+              <Alert className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800 dark:text-orange-200">
+                  You need to add a shipping address before making offers.
+                </AlertDescription>
+              </Alert>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => (window.location.href = "/settings/address")}
+                >
+                  Add Address
+                </Button>
+              </DialogFooter>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

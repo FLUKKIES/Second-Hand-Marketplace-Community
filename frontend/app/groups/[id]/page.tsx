@@ -134,11 +134,11 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
           </aside>
 
           {/* Main Content */}
-          <div className="md:col-span-9 lg:col-span-6 flex flex-col gap-6 h-full overflow-y-auto pb-20 scrollbar-hide">
+          <div className="md:col-span-9 lg:col-span-6 flex flex-col gap-2 h-full overflow-y-auto pb-16 scrollbar-hide">
             {/* Group Header */}
-            <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden shrink-0 mb-6">
+            <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden shrink-0">
               {/* Cover Image (Background) */}
-              <div className="h-56 md:h-72 bg-gradient-to-r from-primary/80 to-purple-600 relative group">
+              <div className="h-56 md:h-72 bg-linear-to-r from-primary/80 to-purple-600 relative group">
                 {group.backgroundUrl ? (
                   <img
                     src={api.getImageUrl(group.backgroundUrl)}
@@ -230,8 +230,16 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
               <Link href={`/groups/${group.id}/create-post`}>
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-indigo-100 transition-colors cursor-text group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-semibold shrink-0">
-                      {user?.username?.[0]?.toUpperCase() || "U"}
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-semibold shrink-0 overflow-hidden border border-indigo-100">
+                      {user?.avatarUrl ? (
+                        <img
+                          src={api.getImageUrl(user.avatarUrl)}
+                          alt={user.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        user?.username?.[0]?.toUpperCase() || "U"
+                      )}
                     </div>
                     <div className="flex-1 bg-gray-50 h-10 rounded-full px-4 flex items-center text-gray-400 text-sm group-hover:bg-indigo-50/50 transition-colors">
                       What&apos;s on your mind? ...
@@ -242,7 +250,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
             )}
 
             {/* Posts Feed */}
-            <div className="space-y-6">
+            <div className="space-y-2">
               <PostFeed groupId={group.id} />
             </div>
           </div>

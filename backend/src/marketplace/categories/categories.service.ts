@@ -3,9 +3,14 @@ import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import slugify from 'slugify';
 
+import { UploadService } from 'src/common/upload/upload.service';
+
 @Injectable()
 export class CategoriesService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private uploadService: UploadService // Inject UploadService
+    ) { }
 
     // สร้างหมวดหมู่ (Admin)
     async create(dto: CreateCategoryDto) {
@@ -55,6 +60,14 @@ export class CategoriesService {
 
     // อัปเดตหมวดหมู่
     async update(id: number, dto: CreateCategoryDto) {
+        // 1. ดึงข้อมูลเดิมมาเช็คก่อน
+        const existingCategory = await this.findOne(id);
+
+        // 2. ถ้ามีการเปลี่ยนรูปภาพ ให้ลบรูปเดิมทิ้ง
+        if (dto.logoUrl && existingCategory.imageUrl && dto.logoUrl !== existingCategory.imageUrl) {
+            await this.uploadService.deleteFile(existingCategory.imageUrl);
+        }
+
         // อาจจะต้องทำ logic เช็ค slug ซ้ำอีกทีถ้ามีการเปลี่ยนชื่อ
         // แต่เพื่อความง่าย update แค่ field อื่นๆ ก่อน
         return this.prisma.category.update({
@@ -68,23 +81,26 @@ export class CategoriesService {
     }
 
     async remove(id: number) {
+        // 0. Fetch category to get image URL for deletion
+        const category = await this.findOne(id);
+
         return this.prisma.$transaction(async (tx) => {
             // 1. Find groups in this category
+            // 1. Find groups in this category
             const groups = await tx.group.findMany({ where: { categoryId: id }, select: { id: true } });
-            const groupIds = groups.map(g => g.id);
 
-            if (groupIds.length > 0) {
-                // 2. Check for active posts in those groups
-                const postCount = await tx.post.count({ where: { groupId: { in: groupIds } } });
-                if (postCount > 0) {
-                    throw new BadRequestException(`Cannot delete category because it contains ${postCount} active posts in its groups.`);
-                }
+            // Prevent deletion if groups exist
+            if (groups.length > 0) {
+                throw new BadRequestException(`Cannot delete category because it contains ${groups.length} groups. Please remove them first.`);
+            }
+            // Removed cascading delete logic as requested
 
-                // 3. Delete groups (members cascade automatically via schema)
-                await tx.group.deleteMany({ where: { categoryId: id } });
+            // 4. Delete image file if exists
+            if (category.imageUrl) {
+                await this.uploadService.deleteFile(category.imageUrl);
             }
 
-            // 4. Delete category
+            // 5. Delete category
             return tx.category.delete({ where: { id } });
         });
     }

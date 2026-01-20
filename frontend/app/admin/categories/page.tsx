@@ -92,7 +92,9 @@ export default function AdminCategoriesPage() {
     if (category) {
       setEditingCategory(category);
       setFormData({ name: category.name, imageUrl: category.imageUrl || "" });
-      setImagePreview(category.imageUrl || null);
+      setImagePreview(
+        category.imageUrl ? api.getImageUrl(category.imageUrl) : null,
+      );
     } else {
       resetForm();
     }
@@ -102,6 +104,19 @@ export default function AdminCategoriesPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+
+      // Validate File Type
+      if (!file.type.match(/image\/(jpeg|jpg|png)/)) {
+        toast.error("Please upload a valid image file (JPG, PNG)");
+        return;
+      }
+
+      // Validate File Size (Max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Image size must be less than 10MB");
+        return;
+      }
+
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
@@ -225,7 +240,7 @@ export default function AdminCategoriesPage() {
                       <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
                         {category.imageUrl ? (
                           <img
-                            src={category.imageUrl}
+                            src={api.getImageUrl(category.imageUrl)}
                             alt={category.name}
                             className="w-full h-full object-cover"
                           />

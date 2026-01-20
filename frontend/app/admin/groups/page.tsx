@@ -165,6 +165,19 @@ export default function AdminGroupsPage() {
   ) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+
+      // Validate File Type
+      if (!file.type.match(/image\/(jpeg|jpg|png)/)) {
+        toast.error("Please upload a valid image file (JPG, PNG)");
+        return;
+      }
+
+      // Validate File Size (Max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Image size must be less than 10MB");
+        return;
+      }
+
       if (type === "profile") {
         setImageFile(file);
         setImagePreview(URL.createObjectURL(file));

@@ -13,6 +13,7 @@ import {
   Share2,
   ShoppingBag,
   Check,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -140,15 +141,14 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
   };
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden mb-6 hover:shadow-md hover:border-border/80 transition-all duration-300">
+    <div className="bg-card rounded-2xl shadow-sm border-2 border-border/50 overflow-hidden mb-6 hover:shadow-md hover:border-border/80 transition-all duration-300">
       {/* Header */}
       <div className="p-5 flex gap-4">
         <Link href={`/profile/${post.author.username}`}>
           <Avatar className="h-11 w-11 cursor-pointer ring-2 ring-background border border-border/50 shadow-sm transition-transform hover:scale-105">
             <AvatarImage
               src={
-                api.getImageUrl(post.author.avatarUrl) ||
-                `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author.username}`
+                api.getImageUrl(post.author.avatarUrl) // `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author.username}`
               }
               className="object-cover"
             />
@@ -187,7 +187,7 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
             <Globe size={11} />
           </div>
         </div>
-        {user?.id === post.author.id && (
+        {isOwnPost && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -199,6 +199,15 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/groups/${post.group?.id || post.groupId}/posts/${post.id}/edit`}
+                  className="cursor-pointer flex items-center"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit Post
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive cursor-pointer"
                 onClick={() => setIsDeleteDialogOpen(true)}
@@ -227,7 +236,7 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
             post.images.length === 1
               ? "grid-cols-1 aspect-video"
               : post.images.length === 2
-                ? "grid-cols-2 aspect-[2/1]"
+                ? "grid-cols-2 aspect-2/1"
                 : "grid-cols-2 aspect-square"
           }`}
         >
@@ -309,25 +318,26 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
 
       {/* Engagement Stats */}
       <div className="px-5 py-3 flex items-center justify-between text-sm text-muted-foreground mt-1">
-        <div className="flex items-center gap-1.5">
-          <div className="flex -space-x-1.5">
-            <div className="bg-rose-500 rounded-full p-1 border-[2px] border-card shadow-sm z-10">
-              <Heart size={8} className="text-white fill-white" />
+        {likeCount > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="flex -space-x-1.5">
+              <div className="bg-rose-500 rounded-full p-1 border-2 border-card shadow-sm z-10">
+                <Heart size={8} className="text-white fill-white" />
+              </div>
             </div>
-            <div className="bg-blue-500 rounded-full p-1 border-[2px] border-card shadow-sm">
-              <Heart size={8} className="text-white fill-white" />
-            </div>
+            <span className="font-medium ml-1 text-foreground/80">
+              {likeCount} {likeCount === 1 ? "Like" : "Likes"}
+            </span>
           </div>
-          <span className="font-medium ml-1 text-foreground/80">
-            {likeCount} {likeCount === 1 ? "Like" : "Likes"}
-          </span>
-        </div>
-        <div className="flex gap-4 font-medium text-xs">
-          <span className="text-foreground/60">
-            {post._count.comments}{" "}
-            {post._count.comments === 1 ? "Comment" : "Comments"}
-          </span>
-        </div>
+        )}
+        {post._count.comments > 0 && (
+          <div className="flex gap-4 font-medium text-xs">
+            <span className="text-foreground/60">
+              {post._count.comments}{" "}
+              {post._count.comments === 1 ? "Comment" : "Comments"}
+            </span>
+          </div>
+        )}
       </div>
 
       <Separator className="opacity-50" />

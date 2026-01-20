@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 export function ChatFloatingWindow() {
     const { isOpen, isMinimized, closeChat, minimizeChat, expandChat, activeRoomId, recipient, openChat } = useChat();
-    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
 
     if (!user) return null; // Don't show if not logged in

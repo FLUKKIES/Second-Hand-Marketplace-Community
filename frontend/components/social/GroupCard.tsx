@@ -14,18 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Group } from "@/types";
 import { api } from "@/lib/api";
 
 interface GroupCardProps {
-  group: {
-    id: string;
-    name: string;
-    description: string | null;
-    imageUrl: string | null;
-    _count?: {
-      members: number;
-    };
-  };
+  group: Group;
   onJoin?: (id: string) => void;
   onLeave?: (id: string) => void;
   isJoined?: boolean;
@@ -69,10 +62,10 @@ export function GroupCard({
       <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden flex flex-col hover-lift animate-fade-in h-full group/card">
         {/* Cover Image / Banner with gradient overlay */}
         <div className="h-28 bg-gradient-to-br from-primary/60 via-purple-500/60 to-pink-500/60 relative overflow-hidden">
-          {group.imageUrl ? (
+          {group.backgroundUrl ? (
             <>
               <img
-                src={api.getImageUrl(group.imageUrl)}
+                src={api.getImageUrl(group.backgroundUrl)}
                 alt={group.name}
                 className="w-full h-full object-cover opacity-70 group-hover/card:scale-105 transition-transform duration-700"
               />

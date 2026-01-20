@@ -111,7 +111,7 @@ export const api = {
                 'Content-Type': 'multipart/form-data'
             },
         });
-        return response.data.url;;
+        return response.data.url;
     },
 
     getImageUrl: (path: string | null | undefined): string => {

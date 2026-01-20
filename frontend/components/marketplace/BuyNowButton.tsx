@@ -77,7 +77,9 @@ export function BuyNowButton({
 
       toast.success("Offer sent at full price! Waiting for seller approval.");
       setIsOpen(false);
-      router.push("/marketplace/my-offers");
+      // Use window.location.href to force a full page reload
+      // This ensures the modal is fully closed before navigation
+      window.location.href = "/marketplace/my-offers";
     } catch (error) {
       toast.error(getErrorMessage(error) || "Failed to send offer");
     } finally {

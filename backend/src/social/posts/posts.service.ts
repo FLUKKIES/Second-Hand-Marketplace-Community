@@ -2,18 +2,21 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePostDto, PostType } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto, SortOption } from 'src/common/search/dto/search-post.dto';
 import { OllamaService } from 'src/common/ollama/ollama.service';
 import * as fs from 'fs';
 import path from 'path';
 import { SearchService } from 'src/common/search/search.service';
+import { UploadService } from 'src/common/upload/upload.service';
 
 @Injectable()
 export class PostsService {
     constructor(
         private prisma: PrismaService,
         private ollamaService: OllamaService,
-        private searchService: SearchService
+        private searchService: SearchService,
+        private uploadService: UploadService
     ) { }
 
     // 1. สร้างโพสต์
@@ -219,27 +222,141 @@ export class PostsService {
                 post.images.forEach(img => filesToDelete.push(img.url));
             }
 
+            // Also delete product images
+            if (post.products && post.products.length > 0) {
+                post.products.forEach(product => {
+                    if (product.imageUrl) {
+                        filesToDelete.push(product.imageUrl);
+                    }
+                });
+            }
+
             await this.prisma.post.delete({
                 where: { id: postId },
             });
 
-            this.deleteFilesFromDisk(filesToDelete);
+            // Use UploadService to delete files
+            filesToDelete.forEach(url => this.uploadService.deleteFile(url));
 
             return { message: 'Post and related data permanently deleted.' };
         }
     }
 
-    private deleteFilesFromDisk(fileUrls: string[]) {
-        fileUrls.forEach((url) => {
-            try {
-                const filePath = path.join(process.cwd() + '/public', url);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-            } catch (error) {
-                console.error(`Failed to delete file: ${url}`, error);
-            }
+    // 5. Update Post
+    async update(userId: string, postId: string, dto: any) { // Using any for dto temporarily to avoid strict type issues with PartialType
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+            include: { images: true, products: true }
         });
+
+        if (!post) throw new NotFoundException('Post not found');
+        if (post.authorId !== userId) throw new ForbiddenException('Not owner');
+
+        // Logic for updating
+        // 1. Content
+        if (dto.content !== undefined) {
+            await this.prisma.post.update({
+                where: { id: postId },
+                data: { content: dto.content }
+            });
+        }
+
+        // 2. Images (If provided, we replace ALL -- Simple strategy for now, or append?)
+        // Let's assume frontend sends the FINAL list of images.
+        // But uploading happens separately. So `dto.imageUrls` are new images.
+        // Actually, for "Edit", if we upload new images, they come as URLs.
+        // If we want to KEEP old images, frontend must send them too?
+        // Or simpler: `dto.imageUrls` contains NEW images to ADD.
+        // And maybe `dto.deleteImageIds` for images to REMOVE.
+        // BUT `UpdatePostDto` extends `CreatePostDto` which has `imageUrls`.
+        // Let's assume `dto.imageUrls` replaces the current images list?
+        // Limitation: If we want to keep some and delete some, efficient way is to send "images to keep" and "images to add".
+        // Let's try a simpler approach: "Append New Images" via `imageUrls` validation in `create` used here?
+        // If `dto.imageUrls` is present, we ADD them.
+        // If user wants to delete, we might need a separate endpoint or field.
+        // Let's stick to the plan: "Handle images (replace or append... Simplified: Allow append)".
+        // WAIT, the prompt asked to "enable delete image" logic in previous turn (implicitly via "make it delete image correctly").
+        // Let's assume if `dto.imageUrls` is passed, it REPLACES all images (so old ones get deleted).
+        // This is destructive but cleaner for "sync state".
+        // OR: effective state sync.
+
+        // Better Strategy for MVP Edit:
+        // - Content: update
+        // - Images: If `dto.imageUrls` provided, ADD them.
+        // - To DELETE images: We can add `deleteImageUrls` to DTO? Or just handle "Replace All".
+        // Let's go with "Replace All" strategy if `dto.imageUrls` is sent.
+
+        if (dto.imageUrls) {
+            const oldImages = post.images;
+            const newImageUrls = dto.imageUrls as string[];
+
+            // 1. Determine which images were removed (present in DB but not in new list)
+            const imagesToDelete = oldImages.filter(
+                (img) => !newImageUrls.includes(img.url)
+            );
+
+            // 2. Delete ONLY the removed images from Disk
+            if (imagesToDelete.length > 0) {
+                imagesToDelete.forEach((img) => this.uploadService.deleteFile(img.url));
+            }
+
+            // 3. Sync Database
+            // Wipe all image relations for this post
+            if (oldImages.length > 0) {
+                await this.prisma.postImage.deleteMany({ where: { postId: post.id } });
+            }
+
+            // Re-create image relations with the new list (preserves order)
+            if (newImageUrls.length > 0) {
+                await this.prisma.postImage.createMany({
+                    data: newImageUrls.map((url) => ({ url, postId: post.id })),
+                });
+            }
+        }
+
+        // 3. Products (Selling Post)
+        // If `dto.products` is provided, we probably want to update them.
+        // Complex: Products have IDs. If DTO sends products without IDs, are they new?
+        // For simplicity: If selling post, and products provided -> Replace All?
+        // That seems dangerous for order history.
+        // Let's Only update generic fields of existing products if matches?
+        // Or for this MVP, let's just allow updating `content` and `images` first.
+        // Products update is tricky with Orders.
+
+        // Let's Try "Replace All Products" IF no orders exist.
+        if (dto.products && post.type === 'SELLING') {
+            const hasOrders = await this.prisma.orderItem.findFirst({
+                where: { product: { postId } }
+            });
+
+            if (!hasOrders) {
+                // Safe to replace
+                // 1. Delete old
+                const oldProducts = post.products;
+                if (oldProducts.length > 0) {
+                    await this.prisma.product.deleteMany({ where: { postId } });
+                    oldProducts.forEach(p => {
+                        if (p.imageUrl) this.uploadService.deleteFile(p.imageUrl);
+                    });
+                }
+
+                // 2. Create new
+                if (dto.products.length > 0) {
+                    await this.prisma.product.createMany({
+                        data: dto.products.map((p: any) => ({
+                            postId,
+                            name: p.name,
+                            price: p.price,
+                            description: p.description,
+                            stock: p.stock,
+                            imageUrl: p.imageUrl
+                        }))
+                    });
+                }
+            }
+        }
+
+        return this.findOne(postId, userId);
     }
 
     // =========================================================

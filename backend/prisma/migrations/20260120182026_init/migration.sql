@@ -14,13 +14,16 @@ CREATE TYPE "GroupRole" AS ENUM ('MEMBER', 'ADMIN');
 CREATE TYPE "PostType" AS ENUM ('NORMAL', 'SELLING');
 
 -- CreateEnum
-CREATE TYPE "OfferStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED');
+CREATE TYPE "OfferStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'COUNTER_OFFERED', 'EXPIRED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('TO_PAY', 'TO_SHIP', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "MessageType" AS ENUM ('TEXT', 'IMAGE', 'OFFER_SENT', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "NotificationType" AS ENUM ('OFFER_RECEIVED', 'OFFER_ACCEPTED', 'OFFER_REJECTED', 'ORDER_CREATED', 'ORDER_PAID', 'ORDER_SHIPPED', 'ORDER_COMPLETED', 'ORDER_CANCELLED', 'SYSTEM');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -36,6 +39,7 @@ CREATE TABLE "users" (
     "bio" TEXT,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "phoneNumber" TEXT,
+    "acceptedTermsAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -103,6 +107,7 @@ CREATE TABLE "groups" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "imageUrl" TEXT,
+    "backgroundUrl" TEXT,
     "categoryId" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -154,6 +159,7 @@ CREATE TABLE "products" (
     "description" TEXT,
     "stock" INTEGER NOT NULL DEFAULT 1,
     "isSoldOut" BOOLEAN NOT NULL DEFAULT false,
+    "imageUrl" TEXT,
     "embedding" vector(1024),
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
@@ -167,6 +173,10 @@ CREATE TABLE "offers" (
     "offeredPrice" DECIMAL(10,2) NOT NULL,
     "buyerNote" TEXT,
     "sellerNote" TEXT,
+    "counterPrice" DECIMAL(10,2),
+    "counterNote" TEXT,
+    "counterCount" INTEGER NOT NULL DEFAULT 0,
+    "expiresAt" TIMESTAMP(3),
     "status" "OfferStatus" NOT NULL DEFAULT 'PENDING',
     "orderId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -256,9 +266,25 @@ CREATE TABLE "chat_messages" (
     "metadata" JSONB,
     "roomId" TEXT NOT NULL,
     "senderId" TEXT NOT NULL,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "readAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "chat_messages_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "data" JSONB,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -281,6 +307,18 @@ CREATE UNIQUE INDEX "group_members_userId_groupId_key" ON "group_members"("userI
 
 -- CreateIndex
 CREATE UNIQUE INDEX "reviews_orderId_key" ON "reviews"("orderId");
+
+-- CreateIndex
+CREATE INDEX "chat_rooms_initiatorId_idx" ON "chat_rooms"("initiatorId");
+
+-- CreateIndex
+CREATE INDEX "chat_rooms_recipientId_idx" ON "chat_rooms"("recipientId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "chat_rooms_initiatorId_recipientId_key" ON "chat_rooms"("initiatorId", "recipientId");
+
+-- CreateIndex
+CREATE INDEX "notifications_userId_idx" ON "notifications"("userId");
 
 -- AddForeignKey
 ALTER TABLE "addresses" ADD CONSTRAINT "addresses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -365,3 +403,6 @@ ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_roomId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
