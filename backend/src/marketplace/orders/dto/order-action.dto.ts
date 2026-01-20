@@ -16,3 +16,10 @@ export const BANK_LIST = [
     { code: 'TTB', name: 'TMBThanachart Bank', icon: 'ttb.png' },
     // ... เพิ่มตามต้องการ
 ];
+
+// 2. ผู้ขายแจ้งส่งของ
+export class ShipOrderDto {
+    @IsString()
+    @IsNotEmpty()
+    trackingNumber: string;
+}

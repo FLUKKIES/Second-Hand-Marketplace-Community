@@ -37,10 +37,10 @@ export function MarketplaceFeed() {
                 if (categoryId) params.append("categoryId", categoryId);
 
                 // Use the search endpoint 
-                const { data } = await api.get<Post[]>(`/posts/search?${params.toString()}`);
+                const posts = await api.get<Post[]>(`/posts/search?${params.toString()}`);
                 
-                if (Array.isArray(data)) {
-                    setPosts(data);
+                if (Array.isArray(posts)) {
+                    setPosts(posts);
                 } else {
                     setPosts([]);
                 }

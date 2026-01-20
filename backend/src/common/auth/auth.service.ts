@@ -26,6 +26,7 @@ export class AuthService {
                     username: dto.username,
                     firstName: dto.firstName,
                     lastName: dto.lastName,
+                    phoneNumber: dto.phoneNumber,
                     password: hash,
                     provider: 'LOCAL',
                 },

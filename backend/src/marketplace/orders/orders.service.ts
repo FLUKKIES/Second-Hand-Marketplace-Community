@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { ConfirmPaymentDto } from './dto/order-action.dto';
+import { ConfirmPaymentDto, ShipOrderDto } from './dto/order-action.dto';
 import { OrderStatus, Prisma } from '@prisma/client';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -15,6 +15,15 @@ export class OrdersService {
 
     // 1. Create Order (Buy Now)
     async createOrder(buyerId: string, dto: CreateOrderDto) {
+        // *** NEW: Validate buyer has shipping address ***
+        const buyerAddresses = await this.prisma.address.findMany({
+            where: { userId: buyerId }
+        });
+
+        if (!buyerAddresses || buyerAddresses.length === 0) {
+            throw new BadRequestException('Please add a shipping address before placing an order');
+        }
+
         // ... (validation logic same as before) ...
         const productIds = dto.items.map(i => i.productId);
         const products = await this.prisma.product.findMany({
@@ -156,7 +165,7 @@ export class OrdersService {
     }
 
     // 3. Seller Ship
-    async markAsShipped(sellerId: string, orderId: string) {
+    async markAsShipped(sellerId: string, orderId: string, dto: ShipOrderDto) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
 
         if (!order) throw new NotFoundException('Order not found');
@@ -165,13 +174,17 @@ export class OrdersService {
 
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
-            data: { status: OrderStatus.TO_RECEIVE },
+            data: {
+                status: OrderStatus.TO_RECEIVE,
+                trackingNumber: dto.trackingNumber
+            },
         });
 
         // EMIT EVENT: Order Shipped (Notify Buyer)
         this.eventEmitter.emit('order.shipped', {
             buyerId: order.buyerId,
-            orderId: order.id
+            orderId: order.id,
+            trackingNumber: dto.trackingNumber
         });
 
         return updatedOrder;
@@ -257,7 +270,8 @@ export class OrdersService {
             where: { buyerId: userId },
             include: {
                 seller: { select: { username: true, avatarUrl: true } },
-                items: { include: { product: true } }
+                items: { include: { product: true } },
+                review: true
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -269,7 +283,8 @@ export class OrdersService {
             where: { sellerId: userId },
             include: {
                 buyer: { select: { username: true, avatarUrl: true } },
-                items: { include: { product: true } }
+                items: { include: { product: true } },
+                review: true
             },
             orderBy: { createdAt: 'desc' }
         });

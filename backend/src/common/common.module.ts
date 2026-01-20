@@ -16,6 +16,7 @@ import { NotificationModule } from './notification/notification.module';
     UploadModule,
     OllamaModule,
     SearchModule,
+    NotificationModule,
   ],
   exports: [AuthModule, PrismaModule, UploadModule, OllamaModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
 })

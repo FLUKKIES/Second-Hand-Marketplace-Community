@@ -15,4 +15,8 @@ export class CreateGroupDto {
     @IsOptional()
     @IsString()
     imageUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    backgroundUrl?: string;
 }

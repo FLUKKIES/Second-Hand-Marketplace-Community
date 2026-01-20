@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
-import { api } from "@/lib/api"
+import { api, getErrorMessage } from "@/lib/api"
 import { useRouter } from "next/navigation"
 
 const registerSchema = z.object({
@@ -54,8 +54,8 @@ export function RegisterForm() {
       await api.post("/auth/signup", payload)
       // Redirect to login on success
       router.push("/login?registered=true")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed")
+    } catch (err) {
+      setError(getErrorMessage(err) || "Registration failed")
     } finally {
       setLoading(false)
     }

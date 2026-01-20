@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
-import { api } from "@/lib/api"
+import { api, getErrorMessage } from "@/lib/api"
 import { useRouter } from "next/navigation"
 
 const loginSchema = z.object({
@@ -43,15 +43,22 @@ export function LoginForm() {
         setLoading(true)
         setError(null)
         try {
-            const res = await api.post("/auth/signin", data)
-            // Store token (handled by cookies or context in real app, simplified here)
-            if (res.data?.access_token) {
-                localStorage.setItem('accessToken', res.data.access_token);
+            await api.post("/auth/signin", data)
+            
+            // Fetch user profile to store in localStorage for UI optimizaton
+            try {
+                const user = await api.get('/users/me');
+                if (user) {
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+            } catch (error) {
+                console.error("Failed to fetch user profile", error);
             }
+
             router.push("/")
             router.refresh()
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Something went wrong")
+        } catch (err) {
+            setError(getErrorMessage(err) || "Something went wrong")
         } finally {
             setLoading(false)
         }
