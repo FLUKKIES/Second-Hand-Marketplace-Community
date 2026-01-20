@@ -32,7 +32,7 @@ export function Navbar() {
   const { user, loading, logout } = useAuth();
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="bg-primary text-primary-foreground p-2 rounded-xl shadow-lg shadow-primary/25 transition-transform group-hover:scale-105 duration-300">
