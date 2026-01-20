@@ -1,19 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { User } from "@/types";
-
-interface ChatContextType {
-  isOpen: boolean;
-  activeRoomId: string | null;
-  recipient: User | null; // The user we are chatting with (useful for header)
-  openChat: (recipient?: User | null) => void;
-  closeChat: () => void;
-  minimizeChat: () => void;
-  expandChat: () => void;
-  isMinimized: boolean;
-}
-
 import { useSocket } from "./SocketContext";
 
 interface ChatContextType {
@@ -39,7 +27,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   // Handle online status
-  React.useEffect(() => {
+  useEffect(() => {
     if (!socket || !isConnected) return;
 
     // Fetch initial list

@@ -32,7 +32,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       const newSocket = io(baseUrl, {
         withCredentials: true,
         autoConnect: true,
-        transports: ["websocket", "polling"],
+        transports: ["websocket", "polling"], // Fallback to polling if websocket fails
       });
 
       newSocket.on("connect", () => {
@@ -46,15 +46,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       newSocket.on("connect_error", (err: any) => {
-        // Suppress initial connection errors or handle them gracefully
         console.error(
           "Socket connection warning:",
-          err?.message || "Unknown socket error"
+          err?.message || "Unknown socket error",
         );
       });
 
       setSocket(newSocket);
 
+      // โค้ดตรงนี้จะทำงานก็ต่อเมื่อ...มีการเปลี่ยนแปลง user?.id หรือไม่มี user?.id
       return () => {
         console.log("Cleaning up socket...");
         newSocket.disconnect();

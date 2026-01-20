@@ -36,6 +36,8 @@ services:
     ollama:
         image: ollama/ollama:latest
         container_name: marketplace_ollama_ai
+        entrypoint: /bin/sh
+        command: -c "ollama serve & sleep 5 && ollama pull bge-m3 && wait"
         volumes:
             - ollama_storage:/root/.ollama
         ports:
