@@ -23,15 +23,43 @@ export class GroupsService {
         });
     }
 
-    async findAll(categoryId?: string) {
-        const where = categoryId ? { categoryId: parseInt(categoryId) } : {};
-        return this.prisma.group.findMany({
+    async findAll(categoryId?: string, keyword?: string, userId?: string) {
+        const where: any = {};
+
+        if (categoryId) {
+            where.categoryId = parseInt(categoryId);
+        }
+
+        if (keyword) {
+            where.name = {
+                contains: keyword,
+                mode: 'insensitive'
+            };
+        }
+
+        const groups = await this.prisma.group.findMany({
             where,
             include: {
                 category: true,
-                _count: { select: { members: true, posts: true } }
-            }
+                _count: { select: { members: true, posts: true } },
+                // If userId exists, check if they are a member
+                members: userId ? {
+                    where: { userId },
+                    select: { userId: true }
+                } : false
+            },
+            orderBy: [
+                { category: { name: 'asc' } }, // List according to category
+                { name: 'asc' }
+            ]
         });
+
+        // Map to include isJoined flag
+        return groups.map(group => ({
+            ...group,
+            isJoined: userId ? group.members.length > 0 : false,
+            members: undefined // Hide members list from response to be clean
+        }));
     }
 
     async findOne(id: string) {

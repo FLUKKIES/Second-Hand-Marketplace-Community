@@ -129,6 +129,23 @@ import { Badge } from "@/components/ui/badge";
             }
         };
 
+        const handleSetDefault = async (id: string) => {
+            try {
+                // Optimistic update
+                setAddresses(prev => prev.map(a => ({
+                    ...a,
+                    isDefault: a.id === id
+                })));
+
+                await api.patch(`/addresses/${id}`, { isDefault: true });
+                toast.success("Default address updated");
+            } catch (error) {
+                console.error(error);
+                toast.error("Failed to set default address");
+                fetchAddresses(); // Revert on error
+            }
+        };
+
         return (
             <div className="space-y-6">
                 <Card>
@@ -163,13 +180,23 @@ import { Badge } from "@/components/ui/badge";
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {addresses.map((address) => (
-                                    <div key={address.id} className="border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-colors bg-white relative group">
+                                    <div key={address.id} className={`border rounded-xl p-4 transition-all relative group ${address.isDefault ? 'border-indigo-500 bg-indigo-50/10' : 'border-gray-200 hover:border-indigo-200 bg-white'}`}>
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-semibold text-gray-900">{address.label}</span>
-                                                {address.isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
+                                                {address.isDefault && <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">Default</Badge>}
                                             </div>
                                             <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {!address.isDefault && (
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="h-8 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                                        onClick={() => handleSetDefault(address.id)}
+                                                    >
+                                                        Set Default
+                                                    </Button>
+                                                )}
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600" onClick={() => { setEditingAddress(address); setIsDialogOpen(true); }}>
                                                     <Edit2 size={14} />
                                                 </Button>

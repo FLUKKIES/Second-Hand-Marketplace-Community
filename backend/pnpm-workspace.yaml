@@ -5,4 +5,5 @@ onlyBuiltDependencies:
   - argon2
   - esbuild
   - prisma
+  - puppeteer
   - unrs-resolver

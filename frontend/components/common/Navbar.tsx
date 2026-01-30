@@ -105,8 +105,7 @@ export function Navbar() {
                     <Avatar className="w-full h-full">
                       <AvatarImage
                         src={
-                          api.getImageUrl(user.avatarUrl) ||
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+                          api.getImageUrl(user.avatarUrl)
                         }
                       />
                       <AvatarFallback>

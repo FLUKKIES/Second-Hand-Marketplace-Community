@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config'; // *เช็ค path ดีๆ �
 import { PrismaModule } from './database/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadModule } from './upload/upload.module';
-import { OllamaModule } from './ollama/ollama.module';
+import { OllamaModule } from './ai/ollama/ollama.module';
 import { SearchModule } from './search/search.module';
 import { NotificationModule } from './notification/notification.module';
 

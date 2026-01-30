@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
-import { PostType } from '@prisma/client';
+import { PostType, Role } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -89,5 +89,29 @@ export class UsersService {
 
 		if (!user) throw new NotFoundException('User not found');
 		return user;
+	}
+	// ... existing methods ...
+
+	async search(keyword: string) {
+		return this.prisma.user.findMany({
+			where: {
+				OR: [
+					{ username: { contains: keyword, mode: 'insensitive' } },
+					{ firstName: { contains: keyword, mode: 'insensitive' } },
+					{ lastName: { contains: keyword, mode: 'insensitive' } },
+					{ email: { contains: keyword, mode: 'insensitive' } },
+				],
+				role: Role.USER
+			},
+			take: 20,
+			select: {
+				id: true,
+				username: true,
+				firstName: true,
+				lastName: true,
+				avatarUrl: true,
+				bio: true,
+			}
+		});
 	}
 }

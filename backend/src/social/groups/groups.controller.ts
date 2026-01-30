@@ -6,6 +6,7 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupsService } from './groups.service';
 import { RolesGuard } from 'src/common/auth/guards/roles.guard';
 import { Roles } from 'src/common/auth/decorator/roles.decorator';
+import { OptionalJwtAuthGuard } from 'src/common/auth/guards/optional-jwt-auth.guard';
 
 @Controller('groups')
 export class GroupsController {
@@ -18,8 +19,13 @@ export class GroupsController {
     }
 
     @Get()
-    findAll(@Query('categoryId') categoryId?: string) {
-        return this.groupsService.findAll(categoryId);
+    @UseGuards(OptionalJwtAuthGuard)
+    findAll(
+        @Query('categoryId') categoryId?: string,
+        @Query('keyword') keyword?: string,
+        @GetUser('userId') userId?: string
+    ) {
+        return this.groupsService.findAll(categoryId, keyword, userId);
     }
 
     @Get('my-groups')

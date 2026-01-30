@@ -65,20 +65,31 @@
 
 ### **4. เครื่องมือและเทคโนโลยีที่ใช้ (Tools & Technologies)**
 
-- **Frontend Development:**
-    - Framework: Next.js 14+ (App Router)
-    - Language: TypeScript
-    - Styling: Tailwind CSS, shadcn/ui
-- **Backend Development:**
-    - Framework: NestJS
-    - Language: TypeScript
-    - Real-time Communication: Socket.io (WebSocket)
-- **Database:**
-    - Database: PostgreSQL
-    - ORM: Prisma
-- **Infrastructure & Tools:**
-    - Docker (สำหรับการจำลอง Environment)
-    - Git / GitHub (สำหรับจัดการ Version Control)
+#### **Frontend Development**
+- **Framework:** Next.js 16.1.1 (App Router)
+- **Language:** TypeScript 5+
+- **Styling:**
+  - **Tailwind CSS v4** (Using `@theme` and `oklch` color space)
+  - **shadcn/ui** (Component library)
+  - **Animations:** `tailwindcss-animate`, `tw-animate-css`
+- **State & Data:** `react-hook-form`, `zod`, `axios`
+- **Real-time:** `socket.io-client`
+
+#### **Backend Development**
+- **Framework:** NestJS (Modular Architecture)
+- **Language:** TypeScript
+- **Database:** PostgreSQL
+- **ORM:** Prisma
+- **Real-time:** Socket.io Gateway
+- **API Structure:**
+  - `common`: Auth, Upload
+  - `marketplace`: Products, Offers, Orders
+  - `social`: Posts, Groups, Chat, Comments
+  - `users`: Profiles
+
+#### **Infrastructure**
+- **Docker & Docker Compose**
+- **Git / GitHub**
 
 ### **5. ประโยชน์ที่คาดว่าจะได้รับ (Expected Outcomes)**
 

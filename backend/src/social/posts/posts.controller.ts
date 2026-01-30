@@ -24,6 +24,7 @@ export class PostsController {
     }
 
     @Get()
+    @UseGuards(OptionalJwtAuthGuard)
     findAll(
         @Query('type') type?: 'NORMAL' | 'SELLING',
         @Query('categoryId') categoryId?: string,
@@ -31,6 +32,7 @@ export class PostsController {
         @Query('authorId') authorId?: string,
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '5',
+        @GetUser('userId') userId?: string,
     ) {
         return this.postsService.findAll({
             type,
@@ -39,7 +41,7 @@ export class PostsController {
             authorId,
             page,
             limit
-        });
+        }, userId);
     }
 
     @Get('search')

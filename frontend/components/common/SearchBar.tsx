@@ -1,17 +1,27 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState } from "react";
 
 export function SearchBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && keyword.trim()) {
-      router.push(`/search?keyword=${encodeURIComponent(keyword.trim())}`);
+      const params = new URLSearchParams();
+      params.set("keyword", keyword.trim());
+      
+      // Check if we are inside a group (e.g., /groups/123)
+      const groupMatch = pathname.match(/^\/groups\/([^/]+)/);
+      if (groupMatch) {
+         params.set("groupId", groupMatch[1]);
+      }
+
+      router.push(`/search?${params.toString()}`);
     }
   };
 

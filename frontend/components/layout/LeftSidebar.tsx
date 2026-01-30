@@ -44,12 +44,7 @@ export function LeftSidebar() {
         <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50 flex items-center gap-3 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-500" />
           <Avatar className="h-10 w-10 border border-border/50">
-            <AvatarImage
-              src={
-                api.getImageUrl(user.avatarUrl) ||
-                `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
-              }
-            />
+            <AvatarImage src={api.getImageUrl(user.avatarUrl)} />
             <AvatarFallback>
               {user.username?.[0]?.toUpperCase() || "U"}
             </AvatarFallback>

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ConfirmPaymentDto, ShipOrderDto } from './dto/order-action.dto';
 import { OrderStatus, Prisma } from '@prisma/client';
@@ -114,6 +115,9 @@ export class OrdersService {
                     promptPay: ''
                 };
 
+                const paymentDueAt = new Date();
+                paymentDueAt.setHours(paymentDueAt.getHours() + 24);
+
                 // Create Order
                 const order = await tx.order.create({
                     data: {
@@ -123,7 +127,8 @@ export class OrdersService {
                         status: OrderStatus.TO_PAY,
                         shippingAddress: dto.shippingAddress,
                         paymentSnapshot: paymentSnapshot as any,
-                        items: { create: orderItemsData }
+                        items: { create: orderItemsData },
+                        paymentDueAt
                     }
                 });
                 createdOrders.push(order);
@@ -288,5 +293,55 @@ export class OrdersService {
             },
             orderBy: { createdAt: 'desc' }
         });
+    }
+    // 8. Cron Job: Expire Unpaid Orders
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handlePaymentCron() {
+        const now = new Date();
+        const overdueOrders = await this.prisma.order.findMany({
+            where: {
+                status: OrderStatus.TO_PAY,
+                paymentDueAt: { lt: now }
+            },
+            include: { items: true }
+        });
+
+        if (overdueOrders.length === 0) return;
+
+        console.log(`[Cron] Found ${overdueOrders.length} overdue orders`);
+
+        for (const order of overdueOrders) {
+            await this.prisma.$transaction(async (tx) => {
+                // Cancel Order
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { status: OrderStatus.CANCELLED }
+                });
+
+                // Restore Stock
+                for (const item of order.items) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: {
+                            stock: { increment: item.quantity },
+                            isSoldOut: false
+                        }
+                    });
+                }
+            });
+
+            // Emit Event
+            this.eventEmitter.emit('order.cancelled', {
+                targetUserId: order.buyerId, // Notify Buyer
+                orderId: order.id,
+                cancelledBy: 'SYSTEM'
+            });
+
+            this.eventEmitter.emit('order.cancelled', {
+                targetUserId: order.sellerId, // Notify Seller
+                orderId: order.id,
+                cancelledBy: 'SYSTEM'
+            });
+        }
     }
 }

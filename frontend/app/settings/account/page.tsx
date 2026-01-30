@@ -32,13 +32,23 @@ import { Loader2 } from "lucide-react";
 const accountFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  bio: z.string().max(160, "Bio must be less than 160 characters").optional(),
+  username: z
+    .string()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must not exceed 30 characters")
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      "Username can only contain letters, numbers, underscores, and hyphens"
+    ),
+  phoneNumber: z.string().optional(),
+  bio: z.string().max(300, "Bio must be less than 300 characters").optional(),
 });
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
 export default function AccountSettingsPage() {
   const { user, setUser } = useAuth();
+  console.log(user);
   const [isLoading, setIsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -47,6 +57,8 @@ export default function AccountSettingsPage() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      username: "",
+      phoneNumber: "",
       bio: "",
     },
   });
@@ -56,6 +68,8 @@ export default function AccountSettingsPage() {
       form.reset({
         firstName: user.firstName || "",
         lastName: user.lastName || "",
+        username: user.username || "",
+        phoneNumber: user.phoneNumber || "",
         bio: user.bio || "",
       });
     }
@@ -119,13 +133,14 @@ export default function AccountSettingsPage() {
         <CardContent>
           <div className="flex flex-col md:flex-row gap-8 mb-8">
             <div className="flex flex-col items-center gap-4">
-              <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
+              <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
                 <AvatarImage
                   src={api.getImageUrl(user?.avatarUrl)}
                   className="object-cover"
                 />
-                <AvatarFallback className="text-2xl bg-indigo-100 text-indigo-600">
-                  {user?.firstName?.[0]}
+                <AvatarFallback className="text-4xl bg-indigo-100 text-indigo-600">
+                  {user?.firstName?.[0]?.toUpperCase() ||
+                    user?.username?.[0]?.toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -140,7 +155,7 @@ export default function AccountSettingsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-white"
+                  className="bg-white hover:bg-gray-50 transition-colors"
                   onClick={() =>
                     document.getElementById("avatar-upload")?.click()
                   }
@@ -152,6 +167,9 @@ export default function AccountSettingsPage() {
                   Change Avatar
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+                Recommended: Square JPG or PNG, max 5MB.
+              </p>
             </div>
 
             <div className="flex-1">
@@ -160,54 +178,118 @@ export default function AccountSettingsPage() {
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Public Info Section */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        Public Info
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Username</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="username"
+                                  {...field}
+                                  className="bg-muted/30"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {/* Read-only Email Field */}
                         <FormItem>
-                          <FormLabel>First Name</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="John" {...field} />
+                            <Input
+                              value={user?.email || ""}
+                              disabled
+                              className="bg-muted/50 cursor-not-allowed"
+                            />
                           </FormControl>
-                          <FormMessage />
+                          <p className="text-[0.8rem] text-muted-foreground">
+                            Email cannot be changed directly.
+                          </p>
                         </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="John" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Last Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Doe" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="bio"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bio</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Tell us a little about yourself"
+                                className="resize-none min-h-[100px]"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="border-t pt-6 space-y-4">
+                      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        Private Info
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="phoneNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="081XXXXXXX" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {/* Add more private fields later like Birthdate if needed */}
+                      </div>
+                    </div>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="bio"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bio</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Tell us a little about yourself"
-                            className="resize-none min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end">
+                  <div className="flex justify-end pt-4">
                     <Button type="submit" disabled={isLoading}>
                       {isLoading && (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

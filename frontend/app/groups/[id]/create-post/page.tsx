@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface CreatePostPageProps {
   params: Promise<{ id: string }>;
@@ -244,19 +245,12 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
           {/* 1. Main Content */}
           <div className="space-y-5">
             <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 overflow-hidden border border-indigo-100 shadow-sm">
-                {user?.avatarUrl ? (
-                  <img
-                    src={api.getImageUrl(user.avatarUrl)}
-                    alt={user.username}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-indigo-600 font-bold text-lg">
-                    {user?.username?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
-              </div>
+              <Avatar className="h-10 w-10 border border-border/50">
+                <AvatarImage src={api.getImageUrl(user?.avatarUrl)} />
+                <AvatarFallback>
+                  {user?.username?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
                   <Label className="text-lg font-semibold text-gray-800">
@@ -328,11 +322,10 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                    isSelling
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isSelling
                       ? "bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200"
                       : "bg-gray-100 text-gray-400"
-                  }`}
+                    }`}
                 >
                   <ShoppingBag size={24} />
                 </div>
@@ -399,11 +392,10 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
                           Product Image
                         </Label>
                         <label
-                          className={`w-full sm:w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden ${
-                            product.imagePreview
+                          className={`w-full sm:w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden ${product.imagePreview
                               ? "border-transparent shadow-md"
                               : "border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/50"
-                          }`}
+                            }`}
                         >
                           {product.imagePreview ? (
                             <div className="relative w-full h-full group">

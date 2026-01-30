@@ -6,6 +6,8 @@ import { Post } from "@/types";
 import { Loader2 } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { Users } from "lucide-react";
 
 interface PostFeedProps {
     type?: "NORMAL" | "SELLING";
@@ -75,10 +77,38 @@ export function PostFeed({
         }
     }, [inView, hasMore, loading]);
 
+    const { user } = useAuth();
+
     if (loading && page === 1) {
         return (
             <div className="flex justify-center py-8">
                 <Loader2 className="animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+
+    if (posts.length === 0 && !loading) {
+        // CASE: Logged in user with no posts (likely follows no groups)
+        if (user && !groupId && !categoryId && !authorId && !type) {
+            return (
+                <div className="flex flex-col items-center justify-center py-12 px-4 text-center space-y-4 bg-white rounded-xl border border-dashed border-gray-200">
+                    <div className="rounded-full bg-primary/10 p-4">
+                        <Users className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Your feed is empty</h3>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                            Join groups to see posts on your timeline.
+                        </p>
+                    </div>
+                </div>
+            )
+        }
+
+        // CASE: Generic Empty State
+        return (
+            <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+                <p className="text-muted-foreground">No posts found.</p>
             </div>
         );
     }

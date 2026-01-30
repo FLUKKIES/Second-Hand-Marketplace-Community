@@ -1,502 +1,504 @@
-generator client {
-    provider        = "prisma-client-js"
-    // เปิดใช้งานฟีเจอร์จัดการ Extension ของ Postgres
-    previewFeatures = ["postgresqlExtensions"]
-}
-
-datasource db {
-    provider   = "postgresql"
-    // เปิดใช้งาน pgvector extension
-    extensions = [vector]
-}
-
-// ==========================================
-// 1. Enums (Standardized Statuses)
-// ==========================================
-
-enum Role {
-    USER
-    ADMIN
-}
-
-enum AuthProvider {
-    LOCAL
-    GOOGLE
-}
-
-enum GroupRole {
-    MEMBER
-    ADMIN
-}
-
-enum PostType {
-    NORMAL
-    SELLING
-}
-
-enum OfferStatus {
-    PENDING
-    ACCEPTED
-    REJECTED
-    COUNTER_OFFERED
-    EXPIRED
-    CANCELLED
-}
-
-enum OrderStatus {
-    TO_PAY
-    TO_SHIP
-    TO_RECEIVE
-    COMPLETED
-    CANCELLED
-}
-
-// ==========================================
-// 2. User & Identity
-// ==========================================
-
-model User {
-    id       String  @id @default(uuid())
-    username String  @unique
-    email    String  @unique
-    password String?
-
-    firstName String?
-    lastName  String?
-
-    provider   AuthProvider @default(LOCAL)
-    providerId String?
-
-    avatarUrl String?
-    bio       String?
-    role      Role    @default(USER)
-
-    phoneNumber String?
-
-    acceptedTermsAt DateTime?
-
-    // Relations to separated tables
-    addresses    Address[]
-    bankAccounts BankAccount[]
-
-    groupMemberships GroupMember[]
-    posts            Post[]
-
-    offersMade    Offer[]
-    ordersBuying  Order[] @relation("BuyerOrders")
-    ordersSelling Order[] @relation("SellerOrders")
-
-    reviewsWritten  Review[] @relation("WrittenReviews")
-    reviewsReceived Review[] @relation("ReceivedReviews")
-
-    comments Comment[]
-    likes    Like[]
-
-    chatInitiated ChatRoom[]    @relation("ChatInitiator")
-    chatReceived  ChatRoom[]    @relation("ChatRecipient")
-    messages      ChatMessage[]
-
-    createdAt     DateTime       @default(now())
-    updatedAt     DateTime       @updatedAt
-    notifications Notification[]
-    // messageReactions MessageReaction[]
+    generator client {
+        provider        = "prisma-client-js"
+        // เปิดใช้งานฟีเจอร์จัดการ Extension ของ Postgres
+        previewFeatures = ["postgresqlExtensions"]
+    }
+
+    datasource db {
+        provider   = "postgresql"
+        // เปิดใช้งาน pgvector extension
+        extensions = [vector]
+    }
+
+    // ==========================================
+    // 1. Enums (Standardized Statuses)
+    // ==========================================
+
+    enum Role {
+        USER
+        ADMIN
+    }
+
+    enum AuthProvider {
+        LOCAL
+        GOOGLE
+    }
+
+    enum GroupRole {
+        MEMBER
+        ADMIN
+    }
+
+    enum PostType {
+        NORMAL
+        SELLING
+    }
+
+    enum OfferStatus {
+        PENDING
+        ACCEPTED
+        REJECTED
+        COUNTER_OFFERED
+        EXPIRED
+        CANCELLED
+    }
+
+    enum OrderStatus {
+        TO_PAY
+        TO_SHIP
+        TO_RECEIVE
+        COMPLETED
+        CANCELLED
+    }
+
+    // ==========================================
+    // 2. User & Identity
+    // ==========================================
+
+    model User {
+        id       String  @id @default(uuid())
+        username String  @unique
+        email    String  @unique
+        password String?
+
+        firstName String?
+        lastName  String?
+
+        provider   AuthProvider @default(LOCAL)
+        providerId String?
+
+        avatarUrl String?
+        bio       String?
+        role      Role    @default(USER)
+
+        phoneNumber String?
+
+        acceptedTermsAt DateTime?
+
+        // Relations to separated tables
+        addresses    Address[]
+        bankAccounts BankAccount[]
+
+        groupMemberships GroupMember[]
+        posts            Post[]
+
+        offersMade    Offer[]
+        ordersBuying  Order[] @relation("BuyerOrders")
+        ordersSelling Order[] @relation("SellerOrders")
+
+        reviewsWritten  Review[] @relation("WrittenReviews")
+        reviewsReceived Review[] @relation("ReceivedReviews")
+
+        comments Comment[]
+        likes    Like[]
+
+        chatInitiated ChatRoom[]    @relation("ChatInitiator")
+        chatReceived  ChatRoom[]    @relation("ChatRecipient")
+        messages      ChatMessage[]
+
+        createdAt     DateTime       @default(now())
+        updatedAt     DateTime       @updatedAt
+        notifications Notification[]
+        // messageReactions MessageReaction[]
 
-    @@map("users")
-}
+        @@map("users")
+    }
 
-model Address {
-    id String @id @default(uuid())
+    model Address {
+        id String @id @default(uuid())
 
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+        userId String
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    label        String  @default("Home") // Home, Office, etc.
-    addressLine1 String
-    addressLine2 String?
-    subDistrict  String // Tambon
-    district     String // Amphoe
-    province     String // Changwat
-    postalCode   String
-    phoneNumber  String? // Contact for this address
+        label        String  @default("Home") // Home, Office, etc.
+        addressLine1 String
+        addressLine2 String?
+        subDistrict  String // Tambon
+        district     String // Amphoe
+        province     String // Changwat
+        postalCode   String
+        phoneNumber  String? // Contact for this address
 
-    isDefault Boolean @default(false)
+        isDefault Boolean @default(false)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-    @@map("addresses")
-}
+        @@map("addresses")
+    }
 
-model Bank {
-    id           String  @id @default(uuid()) // Or use standard codes like '002' for BBL
-    name         String // Kasikorn Bank
-    code         String  @unique // kbank, scb, etc.
-    officialName String // ธนาคารกสิกรไทย
-    logoUrl      String?
+    model Bank {
+        id           String  @id @default(uuid()) // Or use standard codes like '002' for BBL
+        name         String // Kasikorn Bank
+        code         String  @unique // kbank, scb, etc.
+        officialName String // ธนาคารกสิกรไทย
+        logoUrl      String?
 
-    accounts BankAccount[]
+        accounts BankAccount[]
 
-    @@map("banks")
-}
+        @@map("banks")
+    }
 
-model BankAccount {
-    id String @id @default(uuid())
+    model BankAccount {
+        id String @id @default(uuid())
 
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+        userId String
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    bankId String
-    bank   Bank   @relation(fields: [bankId], references: [id])
+        bankId String
+        bank   Bank   @relation(fields: [bankId], references: [id])
 
-    accountNumber String
-    accountName   String
-    isDefault     Boolean @default(false)
+        accountNumber String
+        accountName   String
+        isDefault     Boolean @default(false)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-    @@map("bank_accounts")
-}
+        @@map("bank_accounts")
+    }
 
-// ==========================================
-// 3. Community Structure
-// ==========================================
+    // ==========================================
+    // 3. Community Structure
+    // ==========================================
 
-model Category {
-    id       Int     @id @default(autoincrement())
-    name     String  @unique
-    slug     String  @unique
-    imageUrl String?
+    model Category {
+        id       Int     @id @default(autoincrement())
+        name     String  @unique
+        slug     String  @unique
+        imageUrl String?
 
-    groups Group[]
+        groups Group[]
 
-    createdAt DateTime @default(now())
+        createdAt DateTime @default(now())
 
-    @@map("categories")
-}
+        @@map("categories")
+    }
 
-model Group {
-    id            String  @id @default(uuid())
-    name          String
-    description   String? @db.Text
-    imageUrl      String?
-    backgroundUrl String?
+    model Group {
+        id            String  @id @default(uuid())
+        name          String
+        description   String? @db.Text
+        imageUrl      String?
+        backgroundUrl String?
 
-    categoryId Int
-    category   Category @relation(fields: [categoryId], references: [id])
+        categoryId Int
+        category   Category @relation(fields: [categoryId], references: [id])
 
-    members GroupMember[]
-    posts   Post[]
+        members GroupMember[]
+        posts   Post[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-    @@map("groups")
-}
+        @@map("groups")
+    }
 
-model GroupMember {
-    id     String @id @default(uuid())
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    model GroupMember {
+        id     String @id @default(uuid())
+        userId String
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    groupId String
-    group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+        groupId String
+        group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-    role     GroupRole @default(MEMBER)
-    joinedAt DateTime  @default(now())
+        role     GroupRole @default(MEMBER)
+        joinedAt DateTime  @default(now())
 
-    @@unique([userId, groupId])
-    @@map("group_members")
-}
+        @@unique([userId, groupId])
+        @@map("group_members")
+    }
 
-// ==========================================
-// 4. Content (Post & Product Separation) + VECTOR SUPPORT
-// ==========================================
+    // ==========================================
+    // 4. Content (Post & Product Separation) + VECTOR SUPPORT
+    // ==========================================
 
-model Post {
-    id      String   @id @default(uuid())
-    content String?  @db.Text
-    type    PostType @default(NORMAL)
+    model Post {
+        id      String   @id @default(uuid())
+        content String?  @db.Text
+        type    PostType @default(NORMAL)
 
-    authorId String
-    author   User   @relation(fields: [authorId], references: [id])
+        authorId String
+        author   User   @relation(fields: [authorId], references: [id])
 
-    groupId String
-    group   Group  @relation(fields: [groupId], references: [id])
+        groupId String
+        group   Group  @relation(fields: [groupId], references: [id])
 
-    images   PostImage[]
-    comments Comment[]
-    likes    Like[]
+        images   PostImage[]
+        comments Comment[]
+        likes    Like[]
 
-    products Product[]
+        products Product[]
 
-    // *** Vector Embedding Field ***
-    // ใช้ Unsupported เพราะ Prisma ยังไม่มี Native type สำหรับ vector
-    // ขนาด 1024 สำหรับ bge-m3
-    embedding Unsupported("vector(1024)")?
+        // *** Vector Embedding Field ***
+        // ใช้ Unsupported เพราะ Prisma ยังไม่มี Native type สำหรับ vector
+        // ขนาด 1024 สำหรับ bge-m3
+        embedding Unsupported("vector(1024)")?
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
-    deletedAt DateTime?
+        createdAt DateTime  @default(now())
+        updatedAt DateTime  @updatedAt
+        deletedAt DateTime?
 
-    // Index เพื่อการค้นหาที่รวดเร็ว (HNSW คือ Algorithm ที่นิยมใช้กับ Vector Search)
-    // @@index([embedding], name: "post_embedding_index", type: hnsw)
-    @@map("posts")
-}
+        // Index เพื่อการค้นหาที่รวดเร็ว (HNSW คือ Algorithm ที่นิยมใช้กับ Vector Search)
+        // @@index([embedding], name: "post_embedding_index", type: hnsw)
+        @@map("posts")
+    }
 
-model PostImage {
-    id     String @id @default(uuid())
-    url    String
-    postId String
-    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    model PostImage {
+        id     String @id @default(uuid())
+        url    String
+        postId String
+        post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-    @@map("post_images")
-}
+        @@map("post_images")
+    }
 
-model Product {
-    id     String @id @default(uuid())
-    postId String
-    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    model Product {
+        id     String @id @default(uuid())
+        postId String
+        post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-    name        String
-    price       Decimal @db.Decimal(10, 2)
-    description String?
-    stock       Int     @default(1)
-    isSoldOut   Boolean @default(false)
-    imageUrl    String? // 1 Product has 1 Image
+        name        String
+        price       Decimal @db.Decimal(10, 2)
+        description String?
+        stock       Int     @default(1)
+        isSoldOut   Boolean @default(false)
+        imageUrl    String? // 1 Product has 1 Image
 
-    // *** Vector Embedding Field ***
-    // แยก Embedding ของ Product ออกมาต่างหาก เพื่อให้ค้นหาสินค้าได้แม่นยำขึ้น
-    embedding Unsupported("vector(1024)")?
+        // *** Vector Embedding Field ***
+        // แยก Embedding ของ Product ออกมาต่างหาก เพื่อให้ค้นหาสินค้าได้แม่นยำขึ้น
+        embedding Unsupported("vector(1024)")?
 
-    offers     Offer[]
-    orderItems OrderItem[]
+        offers     Offer[]
+        orderItems OrderItem[]
 
-    // Index สำหรับค้นหาสินค้า
-    // @@index([embedding], name: "product_embedding_index", type: hnsw)
-    @@map("products")
-}
+        // Index สำหรับค้นหาสินค้า
+        // @@index([embedding], name: "product_embedding_index", type: hnsw)
+        @@map("products")
+    }
 
-// ==========================================
-// 5. Negotiation (Offer System)
-// ==========================================
+    // ==========================================
+    // 5. Negotiation (Offer System)
+    // ==========================================
 
-model Offer {
-    id String @id @default(uuid())
+    model Offer {
+        id String @id @default(uuid())
 
-    buyerId String
-    buyer   User   @relation(fields: [buyerId], references: [id])
+        buyerId String
+        buyer   User   @relation(fields: [buyerId], references: [id])
 
-    productId String
-    product   Product @relation(fields: [productId], references: [id])
+        productId String
+        product   Product @relation(fields: [productId], references: [id])
 
-    offeredPrice Decimal @db.Decimal(10, 2)
+        offeredPrice Decimal @db.Decimal(10, 2)
 
-    buyerNote  String? @db.Text
-    sellerNote String? @db.Text
+        buyerNote  String? @db.Text
+        sellerNote String? @db.Text
 
-    // Counter-offer fields
-    counterPrice Decimal? @db.Decimal(10, 2)
-    counterNote  String?  @db.Text
-    counterCount Int      @default(0)
+        // Counter-offer fields
+        counterPrice Decimal? @db.Decimal(10, 2)
+        counterNote  String?  @db.Text
+        counterCount Int      @default(0)
 
-    // Expiration
-    expiresAt DateTime?
+        // Expiration
+        expiresAt DateTime?
 
-    status OfferStatus @default(PENDING)
+        status OfferStatus @default(PENDING)
 
-    orderId String?
-    order   Order?  @relation(fields: [orderId], references: [id])
+        orderId String?
+        order   Order?  @relation(fields: [orderId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-    @@map("offers")
-}
+        @@map("offers")
+    }
 
-// ==========================================
-// 6. Order & Transaction
-// ==========================================
+    // ==========================================
+    // 6. Order & Transaction
+    // ==========================================
 
-model Order {
-    id String @id @default(uuid())
+    model Order {
+        id String @id @default(uuid())
 
-    buyerId String
-    buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
+        buyerId String
+        buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
 
-    sellerId String
-    seller   User   @relation("SellerOrders", fields: [sellerId], references: [id])
+        sellerId String
+        seller   User   @relation("SellerOrders", fields: [sellerId], references: [id])
 
-    totalPrice Decimal     @db.Decimal(10, 2)
-    status     OrderStatus @default(TO_PAY)
+        totalPrice Decimal     @db.Decimal(10, 2)
+        status     OrderStatus @default(TO_PAY)
 
-    shippingAddress String @db.Text
-    paymentSnapshot Json
+        shippingAddress String @db.Text
+        paymentSnapshot Json
 
-    paymentSlipUrl String?
-    trackingNumber String?
+        paymentSlipUrl String?
+        trackingNumber String?
 
-    items  OrderItem[]
-    offers Offer[]
-    review Review?
+        paymentDueAt DateTime? // Expiration time for payment
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        items  OrderItem[]
+        offers Offer[]
+        review Review?
 
-    @@map("orders")
-}
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-model OrderItem {
-    id String @id @default(uuid())
+        @@map("orders")
+    }
 
-    orderId String
-    order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    model OrderItem {
+        id String @id @default(uuid())
 
-    productId String
-    product   Product @relation(fields: [productId], references: [id])
+        orderId String
+        order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-    quantity Int     @default(1)
-    price    Decimal @db.Decimal(10, 2)
+        productId String
+        product   Product @relation(fields: [productId], references: [id])
 
-    @@map("order_items")
-}
+        quantity Int     @default(1)
+        price    Decimal @db.Decimal(10, 2)
 
-// ==========================================
-// 7. Social
-// ==========================================
+        @@map("order_items")
+    }
 
-model Review {
-    id      String  @id @default(uuid())
-    rating  Int
-    comment String? @db.Text
+    // ==========================================
+    // 7. Social
+    // ==========================================
 
-    orderId String @unique
-    order   Order  @relation(fields: [orderId], references: [id])
+    model Review {
+        id      String  @id @default(uuid())
+        rating  Int
+        comment String? @db.Text
 
-    reviewerId String
-    reviewer   User   @relation("WrittenReviews", fields: [reviewerId], references: [id])
+        orderId String @unique
+        order   Order  @relation(fields: [orderId], references: [id])
 
-    targetId String
-    target   User   @relation("ReceivedReviews", fields: [targetId], references: [id])
+        reviewerId String
+        reviewer   User   @relation("WrittenReviews", fields: [reviewerId], references: [id])
 
-    createdAt DateTime @default(now())
+        targetId String
+        target   User   @relation("ReceivedReviews", fields: [targetId], references: [id])
 
-    @@map("reviews")
-}
+        createdAt DateTime @default(now())
 
-model Comment {
-    id      String @id @default(uuid())
-    content String @db.Text
+        @@map("reviews")
+    }
 
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    model Comment {
+        id      String @id @default(uuid())
+        content String @db.Text
 
-    postId String
-    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+        userId String
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        postId String
+        post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-    @@map("comments")
-}
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-model Like {
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+        @@map("comments")
+    }
 
-    postId String
-    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    model Like {
+        userId String
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    createdAt DateTime @default(now())
+        postId String
+        post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-    @@id([userId, postId])
-    @@map("likes")
-}
+        createdAt DateTime @default(now())
 
-// ==========================================
-// 8. Chat System
-// ==========================================
+        @@id([userId, postId])
+        @@map("likes")
+    }
 
-model ChatRoom {
-    id String @id @default(uuid())
+    // ==========================================
+    // 8. Chat System
+    // ==========================================
 
-    initiatorId String
-    initiator   User   @relation("ChatInitiator", fields: [initiatorId], references: [id])
+    model ChatRoom {
+        id String @id @default(uuid())
 
-    recipientId String
-    recipient   User   @relation("ChatRecipient", fields: [recipientId], references: [id])
+        initiatorId String
+        initiator   User   @relation("ChatInitiator", fields: [initiatorId], references: [id])
 
-    messages ChatMessage[]
+        recipientId String
+        recipient   User   @relation("ChatRecipient", fields: [recipientId], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+        messages ChatMessage[]
 
-    // Prevent duplicate rooms
-    @@unique([initiatorId, recipientId])
-    @@index([initiatorId])
-    @@index([recipientId])
-    @@map("chat_rooms")
-}
+        createdAt DateTime @default(now())
+        updatedAt DateTime @updatedAt
 
-enum MessageType {
-    TEXT
-    IMAGE
-    OFFER_SENT
-    SYSTEM
-}
+        // Prevent duplicate rooms
+        @@unique([initiatorId, recipientId])
+        @@index([initiatorId])
+        @@index([recipientId])
+        @@map("chat_rooms")
+    }
 
-model ChatMessage {
-    id       String      @id @default(uuid())
-    content  String?     @db.Text
-    type     MessageType @default(TEXT)
-    metadata Json?
+    enum MessageType {
+        TEXT
+        IMAGE
+        OFFER_SENT
+        SYSTEM
+    }
 
-    roomId String
-    room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+    model ChatMessage {
+        id       String      @id @default(uuid())
+        content  String?     @db.Text
+        type     MessageType @default(TEXT)
+        metadata Json?
 
-    senderId String
-    sender   User   @relation(fields: [senderId], references: [id])
+        roomId String
+        room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
-    isRead Boolean   @default(false)
-    readAt DateTime?
+        senderId String
+        sender   User   @relation(fields: [senderId], references: [id])
 
-    createdAt DateTime @default(now())
-    // messageReactions MessageReaction[]
+        isRead Boolean   @default(false)
+        readAt DateTime?
 
-    @@map("chat_messages")
-}
+        createdAt DateTime @default(now())
+        // messageReactions MessageReaction[]
 
-// ==========================================
-// 8. Notifications
-// ==========================================
+        @@map("chat_messages")
+    }
 
-model Notification {
-    id     String @id @default(uuid())
-    userId String // ผู้รับแจ้งเตือน
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    // ==========================================
+    // 8. Notifications
+    // ==========================================
 
-    type    NotificationType
-    title   String
-    message String
-    data    Json? // เก็บข้อมูลเพิ่มเติม เช่น { orderId: "...", offerId: "..." }
-    isRead  Boolean          @default(false)
+    model Notification {
+        id     String @id @default(uuid())
+        userId String // ผู้รับแจ้งเตือน
+        user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    createdAt DateTime @default(now())
+        type    NotificationType
+        title   String
+        message String
+        data    Json? // เก็บข้อมูลเพิ่มเติม เช่น { orderId: "...", offerId: "..." }
+        isRead  Boolean          @default(false)
 
-    @@index([userId])
-    @@map("notifications")
-}
+        createdAt DateTime @default(now())
 
-enum NotificationType {
-    OFFER_RECEIVED // มีคนมาต่อราคา
-    OFFER_ACCEPTED // คำขอต่อราคาได้รับการอนุมัติ
-    OFFER_REJECTED // คำขอต่อราคาถูกปฏิเสธ
+        @@index([userId])
+        @@map("notifications")
+    }
 
-    ORDER_CREATED // มีคำสั่งซื้อเข้ามา (สำหรับคนขาย)
-    ORDER_PAID // ลูกค้าแจ้งโอนเงิน (สำหรับคนขาย)
-    ORDER_SHIPPED // ร้านค้าส่งของแล้ว (สำหรับคนซื้อ)
-    ORDER_COMPLETED // ลูกค้ารับของแล้ว (สำหรับคนขาย)
-    ORDER_CANCELLED // ยกเลิกออเดอร์
+    enum NotificationType {
+        OFFER_RECEIVED // มีคนมาต่อราคา
+        OFFER_ACCEPTED // คำขอต่อราคาได้รับการอนุมัติ
+        OFFER_REJECTED // คำขอต่อราคาถูกปฏิเสธ
 
-    SYSTEM // แจ้งเตือนจากระบบ
-}
+        ORDER_CREATED // มีคำสั่งซื้อเข้ามา (สำหรับคนขาย)
+        ORDER_PAID // ลูกค้าแจ้งโอนเงิน (สำหรับคนขาย)
+        ORDER_SHIPPED // ร้านค้าส่งของแล้ว (สำหรับคนซื้อ)
+        ORDER_COMPLETED // ลูกค้ารับของแล้ว (สำหรับคนขาย)
+        ORDER_CANCELLED // ยกเลิกออเดอร์
+
+        SYSTEM // แจ้งเตือนจากระบบ
+    }

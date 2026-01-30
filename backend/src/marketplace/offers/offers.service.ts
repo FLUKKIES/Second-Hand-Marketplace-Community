@@ -206,6 +206,7 @@ export class OffersService {
                         status: OrderStatus.TO_PAY,
                         shippingAddress: shippingAddress, // *** FIXED: Real address ***
                         paymentSnapshot: paymentSnapshot as any,
+                        paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
                         items: {
                             create: {
                                 productId: offer.productId,
@@ -361,6 +362,7 @@ export class OffersService {
                         status: OrderStatus.TO_PAY,
                         shippingAddress: shippingAddress,
                         paymentSnapshot: paymentSnapshot as any,
+                        paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
                         items: {
                             create: {
                                 productId: offer.productId,

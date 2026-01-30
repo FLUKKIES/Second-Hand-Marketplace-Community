@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { AuthGuard } from "@nestjs/passport";
 import { GetUser } from "src/common/auth/decorator/get-user.decorator";
@@ -38,6 +38,11 @@ export class UsersController {
     // ============================
     // Public Routes (ใครก็ดูได้)
     // ============================
+
+    @Get('search')
+    search(@Query('keyword') keyword: string) {
+        return this.usersService.search(keyword || '');
+    }
 
     @Get(':username')
     getProfile(@Param('username') username: string) {

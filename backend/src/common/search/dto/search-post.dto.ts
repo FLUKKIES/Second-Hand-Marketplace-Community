@@ -41,4 +41,13 @@ export class SearchPostDto {
     @IsOptional()
     @IsString()
     type?: 'NORMAL' | 'SELLING';
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    minRating?: number; // กรองคนขายที่ได้ดาวเฉลี่ย >= ค่านี้
+
+    @IsOptional()
+    @IsString()
+    detectedType?: 'NORMAL' | 'SELLING' | 'MIXED'; // Type ที่ AI วิเคราะห์ได้
 }

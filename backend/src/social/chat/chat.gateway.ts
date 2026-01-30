@@ -14,7 +14,7 @@ import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({
     cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: true, // Allow all origins for dev simplicity or strict match in prod
         credentials: true
     },
 })

@@ -32,7 +32,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       const newSocket = io(baseUrl, {
         withCredentials: true,
         autoConnect: true,
-        transports: ["websocket", "polling"], // Fallback to polling if websocket fails
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        transports: ["polling", "websocket"], // Standard: polling first, then upgrade
       });
 
       newSocket.on("connect", () => {
