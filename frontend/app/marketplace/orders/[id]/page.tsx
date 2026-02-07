@@ -6,30 +6,51 @@ import { LeftSidebar } from "@/components/layout/LeftSidebar";
 import { Order } from "@/types/marketplace";
 import { api, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Package, User, MapPin, CreditCard, ChevronRight } from "lucide-react";
+import { Loader2, ArrowLeft, Package, User, MapPin, CreditCard, ChevronRight, UploadCloud, Truck, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PaymentDialog } from "@/components/marketplace/PaymentDialog";
+import { ShippingDialog } from "@/components/marketplace/ShippingDialog";
+import { ReviewDialog } from "@/components/marketplace/ReviewDialog";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const { user } = useAuth();
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [isShippingOpen, setIsShippingOpen] = useState(false);
+    const [isReviewOpen, setIsReviewOpen] = useState(false);
+
+    const fetchOrder = async () => {
+        try {
+            setIsLoading(true);
+            const data = await api.get<Order>(`/orders/${id}`);
+            setOrder(data);
+        } catch (error) {
+            console.error("Failed to fetch order:", error);
+            toast.error("Failed to load order details");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchOrder = async () => {
-            try {
-                setIsLoading(true);
-                const data = await api.get<Order>(`/orders/${id}`);
-                setOrder(data);
-            } catch (error) {
-                console.error("Failed to fetch order:", error);
-                toast.error("Failed to load order details");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         if (id) {
             fetchOrder();
         }
@@ -74,6 +95,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         );
     }
 
+    const isBuyer = user?.id === order.buyerId;
+
     return (
         <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
             <Navbar />
@@ -86,19 +109,85 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
                     <div className="md:col-span-9 lg:col-span-9 flex flex-col h-full overflow-y-auto pb-20 scrollbar-hide rounded-tl-xl overflow-hidden">
                         {/* Header */}
-                        <div className="bg-white border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-white/95 rounded-t-xl px-6 py-4 flex items-center gap-4">
-                            <Link href="/marketplace/orders" className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
-                                <ArrowLeft size={20} />
-                            </Link>
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-3">
-                                    Order Details
-                                    <Badge variant="outline" className={getStatusColor(order.status)}>
-                                        {order.status.replace("_", " ")}
-                                    </Badge>
-                                </h1>
-                                <p className="text-sm text-gray-500">ID: {order.id}</p>
+                        <div className="bg-white border-b border-gray-100 sticky top-0 z-10 backdrop-blur-sm bg-white/95 rounded-t-xl px-6 py-4 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <Link href="/marketplace/orders" className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
+                                    <ArrowLeft size={20} />
+                                </Link>
+                                <div>
+                                    <h1 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                                        Order Details
+                                        <Badge variant="outline" className={getStatusColor(order.status)}>
+                                            {order.status.replace("_", " ")}
+                                        </Badge>
+                                    </h1>
+                                    <p className="text-sm text-gray-500">ID: {order.id}</p>
+                                </div>
                             </div>
+
+                            {/* Action Buttons */}
+                            {isBuyer && order.status === "COMPLETED" && !order.review && (
+                                <Button variant="outline" onClick={() => setIsReviewOpen(true)}>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Review Seller
+                                </Button>
+                            )}
+                            {isBuyer && order.status === "TO_PAY" && (
+                                <Button onClick={() => setIsPaymentOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                    <UploadCloud className="w-4 h-4 mr-2" />
+                                    Upload Slip
+                                </Button>
+                            )}
+
+                            {/* Buyer Actions: Mark as Received */}
+                            {isBuyer && order.status === "TO_RECEIVE" && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button className="bg-green-600 hover:bg-green-700 text-white">
+                                            <CheckCircle className="w-4 h-4 mr-2" />
+                                            Order Received
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Confirm Order Receipt</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Are you sure you have received this order? This action cannot be undone and will complete the order.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-green-600 hover:bg-green-700 text-white"
+                                                onClick={async () => {
+                                                    try {
+                                                        await api.patch(`/orders/${order.id}/receive`, {});
+                                                        toast.success("Order marked as received!");
+                                                        fetchOrder();
+                                                    } catch (error) {
+                                                        toast.error(getErrorMessage(error));
+                                                    }
+                                                }}
+                                            >
+                                                Confirm Received
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+
+
+                            {/* Seller Actions: Ship Order / Edit Tracking */}
+                            {!isBuyer && (order.status === "TO_SHIP" || order.status === "TO_RECEIVE") && (
+                                <Button
+                                    variant={order.status === "TO_RECEIVE" ? "secondary" : "default"}
+                                    onClick={() => setIsShippingOpen(true)}
+                                    className={order.status === "TO_SHIP" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+                                >
+                                    <Truck className="w-4 h-4 mr-2" />
+                                    {order.status === "TO_SHIP" ? "Ship Order" : "Edit Tracking"}
+                                </Button>
+                            )}
                         </div>
 
                         <div className="p-6 space-y-6 max-w-4xl">
@@ -144,11 +233,31 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                         <h2 className="font-semibold text-gray-900">Shipping Address</h2>
                                     </div>
                                     <div className="p-4 text-sm text-gray-600 leading-relaxed">
-                                        <p className="font-medium text-gray-900 mb-1">{order.buyer?.username}</p>
-                                        <p>{(order as any).shippingAddress}</p>
+                                        {order.buyer && (
+                                            <Link href={`/profile/${order.buyer.username}`} className="flex items-center gap-2 mb-3 group w-fit">
+                                                <Avatar className="h-8 w-8 border border-gray-200">
+                                                    <AvatarImage src={api.getImageUrl(order.buyer.avatarUrl)} />
+                                                    <AvatarFallback>{order.buyer.username[0]}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-medium text-gray-900 group-hover:text-indigo-600 group-hover:underline transition-colors">
+                                                        {order.buyer.username}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">Buyer</p>
+                                                </div>
+                                            </Link>
+                                        )}
+                                        <div className="pl-10">
+                                            <p>{(order as any).shippingAddress}</p>
+                                            {order.trackingNumber && (
+                                                <div className="mt-2 text-blue-600 font-medium flex items-center gap-1">
+                                                    <Truck size={14} />
+                                                    Tracking: {order.trackingNumber}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </section>
-
                                 {/* Payment Info */}
                                 <section className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden h-full">
                                     <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center gap-2">
@@ -174,6 +283,36 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                         ) : (
                                             <p className="text-sm text-gray-500 italic">No payment information available.</p>
                                         )}
+
+                                        {/* Payment Slip Display if uploaded */}
+                                        {order.paymentSlipUrl && (
+                                            <div className="mt-4 pt-4 border-t border-gray-50">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <p className="text-xs font-medium text-gray-500">Payment Slip</p>
+                                                    {['TO_SHIP', 'TO_RECEIVE', 'COMPLETED'].includes(order.status) && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 p-0"
+                                                            onClick={() => window.open(api.getImageUrl(order.paymentSlipUrl), "_blank")}
+                                                        >
+                                                            <UploadCloud className="w-3 h-3 mr-1" />
+                                                            View Full Slip
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <div
+                                                    className="relative aspect-[3/4] w-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity"
+                                                    onClick={() => window.open(api.getImageUrl(order.paymentSlipUrl), "_blank")}
+                                                >
+                                                    <img
+                                                        src={api.getImageUrl(order.paymentSlipUrl)}
+                                                        alt="Payment Slip"
+                                                        className="object-cover w-full h-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </section>
                             </div>
@@ -181,6 +320,33 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                 </div>
             </main>
+
+            {order && (
+                <PaymentDialog
+                    open={isPaymentOpen}
+                    onOpenChange={setIsPaymentOpen}
+                    order={order}
+                    onSuccess={fetchOrder}
+                />
+            )}
+
+            {order && (
+                <ShippingDialog
+                    open={isShippingOpen}
+                    onOpenChange={setIsShippingOpen}
+                    order={order}
+                    onSuccess={fetchOrder}
+                />
+            )}
+
+            {order && (
+                <ReviewDialog
+                    open={isReviewOpen}
+                    onOpenChange={setIsReviewOpen}
+                    order={order}
+                    onSuccess={fetchOrder}
+                />
+            )}
         </div>
     );
 }

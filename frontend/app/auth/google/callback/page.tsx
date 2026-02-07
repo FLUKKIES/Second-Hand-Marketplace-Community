@@ -14,9 +14,18 @@ function CallbackContent() {
     useEffect(() => {
         if (!hasLogged.current) {
             hasLogged.current = true;
-            login();
+
+            const requiresPhone = searchParams.get('requiresPhone');
+
+            if (requiresPhone === 'true') {
+                // Redirect to add phone page
+                router.push('/auth/add-phone');
+            } else {
+                // Proceed with normal login
+                login();
+            }
         }
-    }, [login]);
+    }, [login, searchParams, router]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">

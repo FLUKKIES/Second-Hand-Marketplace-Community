@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-// Types corresponding to backend UpdateUserDto
+// User Account Schema
 const accountFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -48,7 +48,6 @@ type AccountFormValues = z.infer<typeof accountFormSchema>;
 
 export default function AccountSettingsPage() {
   const { user, setUser } = useAuth();
-  console.log(user);
   const [isLoading, setIsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -86,9 +85,18 @@ export default function AccountSettingsPage() {
       }
 
       toast.success("Profile updated successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update profile", error);
-      toast.error("Failed to update profile");
+      const msg = getErrorMessage(error);
+      if (msg.includes("Credentials taken") || msg.includes("P2002")) {
+        form.setError("username", {
+          type: "manual",
+          message: "This username is already taken.",
+        });
+        toast.error("Username or phone number already in use.");
+      } else {
+        toast.error(msg || "Failed to update profile");
+      }
     } finally {
       setIsLoading(false);
     }

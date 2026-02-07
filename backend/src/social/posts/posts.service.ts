@@ -1,4 +1,4 @@
- import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePostDto, PostType } from './dto/create-post.dto';
@@ -180,7 +180,17 @@ export class PostsService {
                 author: { select: { id: true, username: true, avatarUrl: true } },
                 group: { select: { id: true, name: true, category: true } },
                 images: true,
-                products: true,
+                products: {
+                    include: {
+                        _count: {
+                            select: {
+                                offers: {
+                                    where: { status: { in: ['PENDING', 'COUNTER_OFFERED'] } }
+                                }
+                            }
+                        }
+                    }
+                },
                 _count: { select: { likes: true, comments: true } }
             },
             orderBy: { createdAt: 'desc' },
@@ -202,7 +212,14 @@ export class PostsService {
                         // If userId is provided, check if I made an offer
                         offers: userId ? {
                             where: { buyerId: userId, status: 'PENDING' } // Check pending offers primarily
-                        } : false
+                        } : false,
+                        _count: {
+                            select: {
+                                offers: {
+                                    where: { status: { in: ['PENDING', 'COUNTER_OFFERED'] } }
+                                }
+                            }
+                        }
                     }
                 },
                 comments: { include: { user: true } },

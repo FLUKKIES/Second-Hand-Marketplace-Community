@@ -22,8 +22,8 @@ export function ConsentModal() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Show modal if user is logged in but hasn't accepted terms
-    if (user && !user.acceptedTermsAt) {
+    // Show modal if user is logged in, has phone number, but hasn't accepted terms
+    if (user && user.phoneNumber && !user.acceptedTermsAt) {
       setOpen(true);
     } else {
       setOpen(false);
@@ -52,7 +52,7 @@ export function ConsentModal() {
   if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={() => { }}>
       <DialogContent
         className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
         onPointerDownOutside={preventClose}

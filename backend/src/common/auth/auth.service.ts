@@ -122,11 +122,12 @@ export class AuthService {
             }
         }
 
-        return this.signToken(user.id, user.email, user.role);
+        return this.signToken(user.id, user.email, user.role, !user.phoneNumber);
     }
 
     // Helper: สร้าง JWT Token
-    async signToken(userId: string, email: string, role: string) {
+    async signToken(userId: string, email: string, role: string, requiresPhone: boolean = false) {
+        console.log('signToken', userId, requiresPhone);
         const payload = { sub: userId, email, role };
         const secret = this.config.get('JWT_SECRET');
 
@@ -137,6 +138,7 @@ export class AuthService {
 
         return {
             access_token: token,
+            requiresPhone: requiresPhone,
         };
     }
 }

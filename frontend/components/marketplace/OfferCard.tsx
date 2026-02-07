@@ -56,9 +56,24 @@ export function OfferCard({
   const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
   const [selectedBankAccountId, setSelectedBankAccountId] =
     useState<string>("");
+
+  const requestCounter = () => {
+    if (isSeller) {
+      const hasAccounts =
+        (userBankAccounts && userBankAccounts.length > 0) ||
+        localBankAccounts.length > 0;
+
+      if (!hasAccounts) {
+        setIsBankDialogOpen(true);
+        return;
+      }
+    }
+    setIsCounterDialogOpen(true);
+  };
+
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
-    action: "ACCEPT" | "REJECT" | null;
+    action: "ACCEPT" | "REJECT" | "CANCEL" | null;
     type: "OFFER" | "COUNTER";
   }>({ open: false, action: null, type: "OFFER" });
   const [isLoading, setIsLoading] = useState(false);
@@ -115,6 +130,10 @@ export function OfferCard({
       // by disabling the button and showing the message.
 
       // Note: We modified the UI to show a red box if 0 accounts.
+      if (!hasAccounts) {
+        setIsBankDialogOpen(true);
+        return;
+      }
 
       // Auto-select logic:
       if (accountsToUse.length === 1) {
@@ -189,6 +208,29 @@ export function OfferCard({
     }
   };
 
+  const requestCancel = () => {
+    setConfirmDialog({
+      open: true,
+      action: "CANCEL",
+      type: "OFFER",
+    });
+  };
+
+  const executeCancel = async () => {
+    try {
+      setIsLoading(true);
+      await api.patch(`/offers/${offer.id}/cancel`);
+      toast.success("Offer cancelled successfully");
+      onUpdate?.();
+    } catch (error) {
+      toast.error(getErrorMessage(error) || "Failed to cancel offer");
+    } finally {
+      setIsLoading(false);
+      setConfirmDialog((prev) => ({ ...prev, open: false }));
+    }
+  };
+
+
   return (
     <>
       <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden hover-lift animate-fade-in">
@@ -229,18 +271,21 @@ export function OfferCard({
             </p>
 
             {isSeller && offer.buyer && (
-              <div className="flex items-center gap-2 mt-2">
+              <Link
+                href={`/profile/${offer.buyer.username}`}
+                className="flex items-center gap-2 mt-2 hover:opacity-80 transition-opacity w-fit"
+              >
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={api.getImageUrl(offer.buyer.avatarUrl)} />
                   <AvatarFallback>{offer.buyer.username[0]}</AvatarFallback>
                 </Avatar>
                 <span className="text-xs text-muted-foreground">
                   from{" "}
-                  <span className="font-medium text-foreground">
+                  <span className="font-medium text-foreground hover:underline">
                     {offer.buyer.username}
                   </span>
                 </span>
-              </div>
+              </Link>
             )}
           </div>
 
@@ -319,7 +364,7 @@ export function OfferCard({
                   Accept Offer
                 </Button>
                 <Button
-                  onClick={() => setIsCounterDialogOpen(true)}
+                  onClick={requestCounter}
                   variant="outline"
                   disabled={isLoading}
                   className="flex-1"
@@ -354,6 +399,18 @@ export function OfferCard({
                   Reject Counter
                 </Button>
               </>
+            )}
+
+            {/* Buyer Cancel Button */}
+            {isBuyer && offer.status === "PENDING" && !isExpired && (
+              <Button
+                onClick={requestCancel}
+                variant="outline"
+                disabled={isLoading}
+                className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                Cancel Offer
+              </Button>
             )}
           </div>
         )}
@@ -411,12 +468,16 @@ export function OfferCard({
             <DialogTitle>
               {confirmDialog.action === "ACCEPT"
                 ? "Accept Offer"
-                : "Reject Offer"}
+                : confirmDialog.action === "CANCEL"
+                  ? "Cancel Offer"
+                  : "Reject Offer"}
             </DialogTitle>
             <DialogDescription>
               {confirmDialog.action === "ACCEPT"
                 ? "Please review the transaction details and select your receiving bank account."
-                : "Are you sure you want to reject this offer?"}
+                : confirmDialog.action === "CANCEL"
+                  ? "Are you sure you want to cancel this offer? This action cannot be undone."
+                  : "Are you sure you want to reject this offer?"}
             </DialogDescription>
           </DialogHeader>
 
@@ -507,10 +568,12 @@ export function OfferCard({
               onClick={
                 confirmDialog.action === "ACCEPT"
                   ? executeAccept
-                  : executeReject
+                  : confirmDialog.action === "CANCEL"
+                    ? executeCancel
+                    : executeReject
               }
               variant={
-                confirmDialog.action === "REJECT" ? "destructive" : "default"
+                confirmDialog.action === "REJECT" || confirmDialog.action === "CANCEL" ? "destructive" : "default"
               }
               disabled={
                 confirmDialog.action === "ACCEPT" &&
@@ -518,7 +581,7 @@ export function OfferCard({
                 !selectedBankAccountId
               }
             >
-              Confirm {confirmDialog.action === "ACCEPT" ? "Accept" : "Reject"}
+              Confirm {confirmDialog.action === "ACCEPT" ? "Accept" : confirmDialog.action === "CANCEL" ? "Cancel Order" : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>

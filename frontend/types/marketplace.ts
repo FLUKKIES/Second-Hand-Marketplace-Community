@@ -21,6 +21,18 @@ export interface Order {
         sellerName: string;
         bankAccount: string;
     } | null;
+    paymentSlipUrl?: string | null;
+    shippingAddress?: string;
+    trackingNumber?: string | null;
+    paymentDueAt?: string | null;
+    updatedAt: string;
+    offers?: Offer[];
+    review?: {
+        id: string;
+        rating: number;
+        comment: string | null;
+        createdAt: string;
+    } | null;
 }
 
 export interface OrderItem {

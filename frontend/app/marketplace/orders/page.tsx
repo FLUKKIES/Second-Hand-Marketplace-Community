@@ -47,18 +47,112 @@ function OrdersContent() {
     fetchOrders();
   }, []);
 
-  // Helper to filter active orders
-  const getActiveOrders = (orders: Order[]) =>
-    orders.filter((o) => ["TO_PAY", "TO_SHIP", "TO_RECEIVE"].includes(o.status));
+  // Helper functions
+  const getActive = (orders: Order[]) => orders.filter((o) => ["TO_PAY", "TO_SHIP", "TO_RECEIVE"].includes(o.status));
+  const getCompleted = (orders: Order[]) => orders.filter((o) => o.status === "COMPLETED");
+  const getCancelled = (orders: Order[]) => orders.filter((o) => ["CANCELLED", "REFUNDED", "RETURNED"].includes(o.status));
 
-  // Helper to filter history orders
-  const getHistoryOrders = (orders: Order[]) =>
-    orders.filter((o) => ["COMPLETED", "CANCELLED"].includes(o.status));
+  const [showCancelled, setShowCancelled] = useState(false);
 
-  const activeBuyingOrders = getActiveOrders(buyingOrders);
-  const historyBuyingOrders = getHistoryOrders(buyingOrders);
-  const activeSellingOrders = getActiveOrders(sellingOrders);
-  const historySellingOrders = getHistoryOrders(sellingOrders);
+  const renderOrderList = (orders: Order[], role: "buyer" | "seller") => {
+    const active = getActive(orders);
+    const completed = getCompleted(orders);
+    const cancelled = getCancelled(orders);
+
+    return (
+      <div className="space-y-8">
+        {/* Active Section */}
+        <section>
+          <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
+            <div className="bg-indigo-50 p-2 rounded-lg">
+              {role === 'buyer' ? <UserCheck className="text-indigo-600" size={20} /> : <Package className="text-indigo-600" size={20} />}
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">Active {role === 'buyer' ? 'Orders' : 'Sales'}</h2>
+              <p className="text-sm text-gray-500">{role === 'buyer' ? 'Orders in progress' : 'Sales requiring your attention'}</p>
+            </div>
+          </div>
+
+          {active.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+              <p className="text-gray-500 text-sm">No active {role === 'buyer' ? 'orders' : 'sales'}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {active.map(order => (
+                <OrderCard key={order.id} order={order} role={role} onUpdate={fetchOrders} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Completed Section */}
+        <section>
+          <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
+            <div className="bg-green-50 p-2 rounded-lg">
+              {role === 'buyer' ? <ShoppingBag className="text-green-600" size={20} /> : <Store className="text-green-600" size={20} />}
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">Completed {role === 'buyer' ? 'Orders' : 'Sales'}</h2>
+              <p className="text-sm text-gray-500">Successfully completed {role === 'buyer' ? 'orders' : 'sales'}</p>
+            </div>
+          </div>
+
+          {completed.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+              <p className="text-gray-500 text-sm">No completed {role === 'buyer' ? 'orders' : 'sales'}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {completed.map(order => (
+                <OrderCard key={order.id} order={order} role={role} onUpdate={fetchOrders} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Cancelled Section (Collapsible) */}
+        <section>
+          <button
+            onClick={() => setShowCancelled(!showCancelled)}
+            className="w-full flex items-center justify-between gap-3 pb-4 border-b border-gray-100 mb-4 mt-8 group hover:bg-gray-50 p-2 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-gray-200 transition-colors">
+                <Package className="text-gray-600" size={20} />
+              </div>
+              <div className="text-left">
+                <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                  Cancelled / Refunded
+                  <span className="text-xs font-normal bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                    {cancelled.length}
+                  </span>
+                </h2>
+                <p className="text-sm text-gray-500">Orders that were cancelled or returned</p>
+              </div>
+            </div>
+            <div className={`text-gray-400 transition-transform duration-300 ${showCancelled ? "rotate-180" : ""}`}>
+              ▼
+            </div>
+          </button>
+
+          {showCancelled && (
+            cancelled.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200 animate-in fade-in slide-in-from-top-2">
+                <p className="text-gray-500 text-sm">No cancelled orders</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 opacity-75 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2">
+                {cancelled.map(order => (
+                  <OrderCard key={order.id} order={order} role={role} onUpdate={fetchOrders} />
+                ))}
+              </div>
+            )
+          )}
+        </section>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
@@ -100,9 +194,9 @@ function OrdersContent() {
                   >
                     <ShoppingBag size={18} />
                     <span>My Purchases</span>
-                    {activeBuyingOrders.length > 0 && (
+                    {getActive(buyingOrders).length > 0 && (
                       <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
-                        {activeBuyingOrders.length}
+                        {getActive(buyingOrders).length}
                       </span>
                     )}
                   </button>
@@ -117,9 +211,9 @@ function OrdersContent() {
                   >
                     <Store size={18} />
                     <span>My Sales</span>
-                    {activeSellingOrders.length > 0 && (
+                    {getActive(sellingOrders).length > 0 && (
                       <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
-                        {activeSellingOrders.length}
+                        {getActive(sellingOrders).length}
                       </span>
                     )}
                   </button>
@@ -134,153 +228,9 @@ function OrdersContent() {
                   <Loader2 className="animate-spin text-primary" size={40} />
                 </div>
               ) : activeTab === "buying" ? (
-                <div className="space-y-8">
-                  {/* Active Section */}
-                  <section>
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
-                      <div className="bg-indigo-50 p-2 rounded-lg">
-                        <UserCheck className="text-indigo-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-gray-900 text-lg">
-                          Active Orders
-                        </h2>
-                        <p className="text-sm text-gray-500">
-                          Orders in progress
-                        </p>
-                      </div>
-                    </div>
-
-                    {activeBuyingOrders.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                          No active orders
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4">
-                        {activeBuyingOrders.map((order) => (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            role="buyer"
-                            onUpdate={fetchOrders}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* History Section */}
-                  <section>
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
-                      <div className="bg-gray-100 p-2 rounded-lg">
-                        <ShoppingBag className="text-gray-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-gray-900 text-lg">
-                          Order History
-                        </h2>
-                        <p className="text-sm text-gray-500">
-                          Past orders (Completed, Cancelled)
-                        </p>
-                      </div>
-                    </div>
-
-                    {historyBuyingOrders.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                          No order history
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                        {historyBuyingOrders.map((order) => (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            role="buyer"
-                            onUpdate={fetchOrders}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                </div>
+                renderOrderList(buyingOrders, "buyer")
               ) : (
-                <div className="space-y-8">
-                  {/* Active Section */}
-                  <section>
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
-                      <div className="bg-indigo-50 p-2 rounded-lg">
-                        <Package className="text-indigo-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-gray-900 text-lg">
-                          Active Sales
-                        </h2>
-                        <p className="text-sm text-gray-500">
-                          Sales requiring your attention
-                        </p>
-                      </div>
-                    </div>
-
-                    {activeSellingOrders.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                          No active sales
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4">
-                        {activeSellingOrders.map((order) => (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            role="seller"
-                            onUpdate={fetchOrders}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* History Section */}
-                  <section>
-                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
-                      <div className="bg-gray-100 p-2 rounded-lg">
-                        <Store className="text-gray-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-gray-900 text-lg">
-                          Sales History
-                        </h2>
-                        <p className="text-sm text-gray-500">
-                          Past sales (Completed, Cancelled)
-                        </p>
-                      </div>
-                    </div>
-
-                    {historySellingOrders.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                          No sales history
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                        {historySellingOrders.map((order) => (
-                          <OrderCard
-                            key={order.id}
-                            order={order}
-                            role="seller"
-                            onUpdate={fetchOrders}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                </div>
+                renderOrderList(sellingOrders, "seller")
               )}
             </div>
           </div>

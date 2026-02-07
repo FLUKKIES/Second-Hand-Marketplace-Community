@@ -87,6 +87,9 @@ export interface Product {
     isSoldOut: boolean;
     imageUrl: string | null;
     offers?: any[];
+    _count?: {
+        offers: number;
+    };
 }
 
 export type PostType = 'NORMAL' | 'SELLING';

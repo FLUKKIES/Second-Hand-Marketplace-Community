@@ -70,6 +70,33 @@ export class OffersService {
         return offer;
     }
 
+    // 1.5 Cancel Offer (Buyer)
+    async cancel(userId: string, offerId: string) {
+        const offer = await this.prisma.offer.findUnique({
+            where: { id: offerId },
+            include: { product: { include: { post: true } } }
+        });
+
+        if (!offer) throw new NotFoundException('Offer not found');
+        if (offer.buyerId !== userId) throw new ForbiddenException('You can only cancel your own offers');
+        if (offer.status !== OfferStatus.PENDING) {
+            throw new BadRequestException('Only pending offers can be cancelled');
+        }
+
+        const cancelledOffer = await this.prisma.offer.update({
+            where: { id: offerId },
+            data: { status: OfferStatus.CANCELLED }
+        });
+
+        // EMIT EVENT: Offer Cancelled (Notify Seller)
+        this.eventEmitter.emit('offer.cancelled', {
+            sellerId: offer.product.post.authorId,
+            offerId: offer.id
+        });
+
+        return cancelledOffer;
+    }
+
     // 2. Respond Offer (Accept/Reject/Counter)
     async respond(sellerId: string, offerId: string, dto: RespondOfferDto) {
         const offer = await this.prisma.offer.findUnique({
@@ -221,13 +248,33 @@ export class OffersService {
                 });
 
                 // 3. Cut Stock
-                await tx.product.update({
+                const updatedProduct = await tx.product.update({
                     where: { id: offer.productId },
                     data: {
                         stock: { decrement: 1 },
-                        isSoldOut: (offer.product.stock - 1) <= 0
                     }
                 });
+
+                // Check if sold out
+                if (updatedProduct.stock <= 0) {
+                    await tx.product.update({
+                        where: { id: offer.productId },
+                        data: { isSoldOut: true }
+                    });
+
+                    // *** NEW: Reject all other pending/countered offers for this product ***
+                    await tx.offer.updateMany({
+                        where: {
+                            productId: offer.productId,
+                            id: { not: offerId }, // Exclude current offer
+                            status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
+                        },
+                        data: {
+                            status: OfferStatus.REJECTED,
+                            sellerNote: "Item Sold Out"
+                        }
+                    });
+                }
 
                 // EMIT EVENT: Offer Accepted (Notify Buyer)
                 this.eventEmitter.emit('offer.accepted', {
@@ -246,12 +293,13 @@ export class OffersService {
         return this.prisma.offer.findMany({
             where: {
                 product: { post: { authorId: userId } },
-                status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
+                // REMOVED STATUS FILTER to allow history
             },
             include: { buyer: { select: { username: true, avatarUrl: true } }, product: true },
             orderBy: { createdAt: 'desc' }
         });
     }
+
 
     // 4. Get My Offers (Buyer)
     async getMyOffers(userId: string) {
@@ -376,13 +424,32 @@ export class OffersService {
                     }
                 });
 
-                await tx.product.update({
+                const updatedProduct = await tx.product.update({
                     where: { id: offer.productId },
                     data: {
                         stock: { decrement: 1 },
-                        isSoldOut: (offer.product.stock - 1) <= 0
                     }
                 });
+
+                if (updatedProduct.stock <= 0) {
+                    await tx.product.update({
+                        where: { id: offer.productId },
+                        data: { isSoldOut: true }
+                    });
+
+                    // *** NEW: Reject all other pending/countered offers for this product ***
+                    await tx.offer.updateMany({
+                        where: {
+                            productId: offer.productId,
+                            id: { not: offerId },
+                            status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
+                        },
+                        data: {
+                            status: OfferStatus.REJECTED,
+                            sellerNote: "Item Sold Out"
+                        }
+                    });
+                }
 
                 this.eventEmitter.emit('offer.counter_accepted', {
                     sellerId: offer.product.post.authorId,

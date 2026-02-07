@@ -15,6 +15,14 @@ export class OffersController {
         return this.offersService.create(userId, dto);
     }
 
+    @Patch(':id/cancel')
+    cancel(
+        @Param('id') offerId: string,
+        @GetUser('userId') userId: string
+    ) {
+        return this.offersService.cancel(userId, offerId);
+    }
+
     @Patch(':id/respond')
     respond(
         @Param('id') offerId: string,

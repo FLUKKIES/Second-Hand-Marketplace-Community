@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { PostType, Role } from '@prisma/client';
@@ -41,22 +42,31 @@ export class UsersService {
 
 	// 2. อัปเดตข้อมูลส่วนตัว
 	async updateMe(userId: string, dto: UpdateUserDto) {
-		const user = await this.prisma.user.update({
-			where: { id: userId },
-			data: {
-				...dto,
-			},
-			select: {
-				id: true,
-				username: true,
-				firstName: true,
-				lastName: true,
-				bio: true,
-				phoneNumber: true,
-				addresses: true,
-			},
-		});
-		return user;
+		try {
+			const user = await this.prisma.user.update({
+				where: { id: userId },
+				data: {
+					...dto,
+				},
+				select: {
+					id: true,
+					username: true,
+					firstName: true,
+					lastName: true,
+					bio: true,
+					phoneNumber: true,
+					addresses: true,
+				},
+			});
+			return user;
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError) {
+				if (error.code === 'P2002') {
+					throw new ForbiddenException('Credentials taken');
+				}
+			}
+			throw error;
+		}
 	}
 
 	async acceptTerms(userId: string) {

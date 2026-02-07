@@ -169,27 +169,37 @@ export class OrdersService {
         return updatedOrder;
     }
 
-    // 3. Seller Ship
+    // 3. Seller Ship & Update Tracking
     async markAsShipped(sellerId: string, orderId: string, dto: ShipOrderDto) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
 
         if (!order) throw new NotFoundException('Order not found');
         if (order.sellerId !== sellerId) throw new ForbiddenException('Not your order');
-        if (order.status !== OrderStatus.TO_SHIP) throw new BadRequestException('Order is not ready to ship');
+
+        // Allow if TO_SHIP (First time) OR TO_RECEIVE (Update tracking)
+        if (order.status !== OrderStatus.TO_SHIP && order.status !== OrderStatus.TO_RECEIVE) {
+            throw new BadRequestException('Order cannot be shipped or updated at this stage');
+        }
+
+        const isUpdate = order.status === OrderStatus.TO_RECEIVE;
 
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: {
-                status: OrderStatus.TO_RECEIVE,
+                status: OrderStatus.TO_RECEIVE, // Ensure status is TO_RECEIVE
                 trackingNumber: dto.trackingNumber
             },
         });
 
-        // EMIT EVENT: Order Shipped (Notify Buyer)
+        // EMIT EVENT: Order Shipped (Notify Buyer) - Only if it's the first time
+        // Or maybe emit "Tracking Updated" if it's an update? 
+        // For now, let's just emit the same event, the listener can decide or we can add a flag.
+        // Actually, if it's an update, we might want to notify the buyer again that tracking changed.
         this.eventEmitter.emit('order.shipped', {
             buyerId: order.buyerId,
             orderId: order.id,
-            trackingNumber: dto.trackingNumber
+            trackingNumber: dto.trackingNumber,
+            isUpdate
         });
 
         return updatedOrder;

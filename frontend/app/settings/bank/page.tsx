@@ -30,225 +30,270 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Plus, CreditCard, Trash2, Edit2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, Building2 } from "lucide-react";
 
-// Mock Bank List
-const bankAccountFormSchema = z.object({
-  bankId: z.string().min(1, "Please select a bank"),
+// Bank Account Types
+interface BankAccount {
+  id: string;
+  bankId: string;
+  accountNumber: string;
+  accountName: string;
+  isDefault: boolean;
+  bank: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+const bankAccountSchema = z.object({
+  bankId: z.string().min(1, "Bank is required"),
+  accountNumber: z.string().min(1, "Account number is required"),
   accountName: z.string().min(1, "Account name is required"),
-  accountNumber: z
-    .string()
-    .min(10, "Account number must be at least 10 digits")
-    .regex(/^\d+$/, "Must only contain numbers"),
+  isDefault: z.boolean(),
 });
 
-type BankAccountFormValues = z.infer<typeof bankAccountFormSchema>;
-
-import { Bank, BankAccount } from "@/types";
+type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
 
 export default function BankSettingsPage() {
   const { user } = useAuth();
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
-  const [banks, setBanks] = useState<Bank[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(
-    null
-  );
 
-  // Confirmation States
-  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
-  const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
+  // Bank Account State
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+  const [isBankLoading, setIsBankLoading] = useState(false);
+  const [availableBanks, setAvailableBanks] = useState<any[]>([]);
 
-  const [addConfirmationOpen, setAddConfirmationOpen] = useState(false);
-  const [pendingAddData, setPendingAddData] =
-    useState<BankAccountFormValues | null>(null);
-
-  const form = useForm<BankAccountFormValues>({
-    resolver: zodResolver(bankAccountFormSchema),
+  // Bank Account Form
+  const bankForm = useForm<BankAccountFormValues>({
+    resolver: zodResolver(bankAccountSchema),
     defaultValues: {
       bankId: "",
-      accountName: "",
       accountNumber: "",
+      accountName: "",
+      isDefault: false,
     },
   });
 
+  useEffect(() => {
+    if (user) {
+      fetchBankAccounts();
+      fetchBanks();
+    }
+  }, [user]);
+
+  const fetchBankAccounts = async () => {
+    try {
+      const data = await api.get<BankAccount[]>("/bank-accounts/me");
+      setBankAccounts(data);
+    } catch (error) {
+      console.error("Failed to fetch bank accounts", error);
+    }
+  };
+
   const fetchBanks = async () => {
     try {
-      const banks = await api.get<Bank[]>("/banks");
-      setBanks(banks);
+      const data = await api.get<any[]>("/banks");
+      setAvailableBanks(data);
     } catch (error) {
       console.error("Failed to fetch banks", error);
     }
   };
 
-  const fetchAccounts = async () => {
+  const onBankSubmit = async (data: BankAccountFormValues) => {
+    setIsBankLoading(true);
     try {
-      const accounts = await api.get<BankAccount[]>("/bank-accounts/me");
-      setAccounts(accounts);
-      setLoading(false);
+      if (editingAccount) {
+        await api.patch(`/bank-accounts/${editingAccount.id}`, data);
+        toast.success("Bank account updated");
+      } else {
+        await api.post("/bank-accounts", data);
+        toast.success("Bank account added");
+      }
+      setIsBankModalOpen(false);
+      fetchBankAccounts();
     } catch (error) {
-      console.error("Failed to fetch accounts", error);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBanks();
-    fetchAccounts();
-  }, []);
-
-  useEffect(() => {
-    if (isDialogOpen && editingAccount) {
-      form.reset({
-        bankId: editingAccount.bankId.toString(), // Ensure string if types created mismatch (though updated to string already)
-        accountName: editingAccount.accountName,
-        accountNumber: editingAccount.accountNumber,
-      });
-    } else if (isDialogOpen && !editingAccount) {
-      form.reset({
-        bankId: "",
-        accountName: "",
-        accountNumber: "",
-      });
-    }
-  }, [isDialogOpen, editingAccount, form]);
-
-  const onSubmit = async (data: BankAccountFormValues) => {
-    if (editingAccount) {
-      toast.error(
-        "Editing bank account is not supported. Please delete and add a new one."
-      );
-    } else {
-      setPendingAddData(data);
-      setAddConfirmationOpen(true);
-    }
-  };
-
-  const confirmAdd = async () => {
-    if (!pendingAddData) return;
-    try {
-      await api.post<BankAccount>("/bank-accounts", pendingAddData);
-      fetchAccounts();
-      toast.success("Bank account added");
-      setAddConfirmationOpen(false);
-      setIsDialogOpen(false);
-      setPendingAddData(null);
-      setEditingAccount(null);
-    } catch (error) {
+      console.error("Failed to save bank account", error);
       toast.error("Failed to save bank account");
+    } finally {
+      setIsBankLoading(false);
+      setEditingAccount(null);
+      bankForm.reset();
     }
   };
 
-  const handleDeleteClick = (id: string) => {
-    setAccountToDelete(id);
-    setDeleteConfirmationOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!accountToDelete) return;
+  const handleDeleteBankAccount = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this bank account?")) return;
     try {
-      await api.delete(`/bank-accounts/${accountToDelete}`);
-      setAccounts((prev) => prev.filter((a) => a.id !== accountToDelete));
+      await api.delete(`/bank-accounts/${id}`);
       toast.success("Bank account deleted");
-      setDeleteConfirmationOpen(false);
-      setAccountToDelete(null);
+      fetchBankAccounts();
     } catch (error) {
+      console.error("Failed to delete bank account", error);
       toast.error("Failed to delete bank account");
     }
+  };
+
+  const openBankModal = (account?: BankAccount) => {
+    if (account) {
+      setEditingAccount(account);
+      bankForm.reset({
+        bankId: account.bankId,
+        accountNumber: account.accountNumber,
+        accountName: account.accountName,
+        isDefault: account.isDefault,
+      });
+    } else {
+      setEditingAccount(null);
+      bankForm.reset({
+        bankId: "",
+        accountNumber: "",
+        accountName: "",
+        isDefault: false,
+      });
+    }
+    setIsBankModalOpen(true);
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+          <div className="space-y-1.5">
             <CardTitle>Bank Accounts</CardTitle>
-            <CardDescription>
-              Manage bank accounts for receiving payouts.
-            </CardDescription>
+            <CardDescription>Manage your bank accounts for receiving payments.</CardDescription>
           </div>
-          <Button
-            onClick={() => {
-              setEditingAccount(null);
-              setIsDialogOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New
-          </Button>
+          <Dialog open={isBankModalOpen} onOpenChange={setIsBankModalOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => openBankModal()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
+                <DialogDescription>
+                  Enter your bank account details below.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...bankForm}>
+                <form onSubmit={bankForm.handleSubmit(onBankSubmit)} className="space-y-4">
+                  <FormField
+                    control={bankForm.control}
+                    name="bankId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank</FormLabel>
+                        <FormControl>
+                          <select
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            {...field}
+                          >
+                            <option value="">Select a bank</option>
+                            {availableBanks.map(bank => (
+                              <option key={bank.id} value={bank.id}>{bank.name}</option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={bankForm.control}
+                    name="accountName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Account Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={bankForm.control}
+                    name="accountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Account Number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={bankForm.control}
+                    name="isDefault"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Default Account</FormLabel>
+                          <DialogDescription>
+                            Use this account as default for receiving payments.
+                          </DialogDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <DialogFooter>
+                    <Button type="submit" disabled={isBankLoading}>
+                      {isBankLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Save Account
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-primary" />
-            </div>
-          ) : accounts.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                <CreditCard className="text-gray-400" />
-              </div>
-              <h3 className="text-sm font-semibold text-gray-900">
-                No bank accounts found
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Add a bank account to receive payments from sales.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsDialogOpen(true)}
-              >
-                Add Bank Account
-              </Button>
+          {bankAccounts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 border border-dashed rounded-lg">
+              No bank accounts added yet.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {accounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-colors bg-white relative group"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                        {account.bank.code}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {account.bank.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          **** {account.accountNumber.slice(-4)}
-                        </p>
-                      </div>
+            <div className="space-y-4">
+              {bankAccounts.map((account) => (
+                <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-indigo-50 rounded-lg">
+                      <Building2 className="text-indigo-600" size={24} />
                     </div>
-                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                      {/* Edit removed as not supported by backend yet */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-600"
-                        onClick={() => handleDeleteClick(account.id)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{account.bank.name}</p>
+                        {account.isDefault && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Default</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">{account.accountName}</p>
+                      <p className="text-sm text-gray-500 tracking-wider">{account.accountNumber}</p>
                     </div>
                   </div>
-                  <div className="mt-2 text-sm text-gray-600">
-                    Account Name:{" "}
-                    <span className="font-medium text-gray-900">
-                      {account.accountName}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-indigo-600" onClick={() => openBankModal(account)}>
+                      <Pencil size={16} />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-red-600" onClick={() => handleDeleteBankAccount(account.id)}>
+                      <Trash2 size={16} />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -256,155 +301,6 @@ export default function BankSettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Add Bank Account</DialogTitle>
-            <DialogDescription>
-              Enter your bank account details carefully.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="bankId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bank</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a bank" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {banks.map((bank) => (
-                          <SelectItem key={bank.id} value={bank.id.toString()}>
-                            {bank.name} ({bank.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="accountName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Account Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="accountNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Account Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="1234567890" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="submit">Save Account</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteConfirmationOpen}
-        onOpenChange={setDeleteConfirmationOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Bank Account</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this bank account? This action
-              cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteConfirmationOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Confirmation Dialog */}
-      <Dialog open={addConfirmationOpen} onOpenChange={setAddConfirmationOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Bank Account</DialogTitle>
-            <DialogDescription>
-              Please verify your details before saving. Incorrect details may
-              cause payout delays.
-            </DialogDescription>
-          </DialogHeader>
-
-          {pendingAddData && (
-            <div className="py-2 space-y-2 text-sm">
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground">Bank:</span>
-                <span className="col-span-2 font-medium">
-                  {banks.find((b) => b.id.toString() === pendingAddData.bankId)
-                    ?.name || pendingAddData.bankId}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground">Account Name:</span>
-                <span className="col-span-2 font-medium">
-                  {pendingAddData.accountName}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground">Account No:</span>
-                <span className="col-span-2 font-medium">
-                  {pendingAddData.accountNumber}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddConfirmationOpen(false)}
-            >
-              Edit
-            </Button>
-            <Button onClick={confirmAdd}>Confirm Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

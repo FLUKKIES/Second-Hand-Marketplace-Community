@@ -19,7 +19,7 @@ export const BANK_LIST = [
 
 // 2. ผู้ขายแจ้งส่งของ
 export class ShipOrderDto {
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    trackingNumber: string;
+    trackingNumber?: string | null;
 }

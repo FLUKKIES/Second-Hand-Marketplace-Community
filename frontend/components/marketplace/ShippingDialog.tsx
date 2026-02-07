@@ -19,19 +19,20 @@ interface ShippingDialogProps {
 
 export function ShippingDialog({ open, onOpenChange, order, onSuccess }: ShippingDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [trackingNumber, setTrackingNumber] = useState("");
+    const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || "");
+
+    // Update state if order prop changes (e.g. re-opening dialog)
+    useState(() => {
+        setTrackingNumber(order.trackingNumber || "");
+    });
 
     const handleSubmit = async () => {
-        if (!trackingNumber.trim()) {
-            toast.error("Please enter a tracking number");
-            return;
-        }
-
+        // Tracking number is optional now
         try {
             setIsLoading(true);
 
             await api.patch(`/orders/${order.id}/ship`, {
-                trackingNumber
+                trackingNumber: trackingNumber.trim() || null // Send null if empty
             });
 
             toast.success("Order marked as shipped!");
@@ -45,31 +46,38 @@ export function ShippingDialog({ open, onOpenChange, order, onSuccess }: Shippin
         }
     };
 
+    const isUpdate = order.status === "TO_RECEIVE";
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Mark as Shipped</DialogTitle>
+                    <DialogTitle>{isUpdate ? "Update Tracking Number" : "Mark as Shipped"}</DialogTitle>
                     <DialogDescription>
-                        Enter the tracking number to notify the buyer.
+                        {isUpdate
+                            ? "Enter the new tracking number."
+                            : "Enter the tracking number to notify the buyer (Optional)."
+                        }
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>Tracking Number</Label>
+                        <Label>Tracking Number {isUpdate ? "" : "(Optional)"}</Label>
                         <div className="relative">
                             <Truck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="e.g. TH123456789" 
+                            <Input
+                                placeholder="e.g. TH123456789"
                                 className="pl-9"
                                 value={trackingNumber}
                                 onChange={(e) => setTrackingNumber(e.target.value)}
                             />
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Please ensure the tracking number is correct.
-                        </p>
+                        {!isUpdate && (
+                            <p className="text-xs text-muted-foreground">
+                                You can add it later if you don't have it yet.
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -77,9 +85,9 @@ export function ShippingDialog({ open, onOpenChange, order, onSuccess }: Shippin
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={isLoading || !trackingNumber.trim()}>
+                    <Button onClick={handleSubmit} disabled={isLoading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm Shipping
+                        {isUpdate ? "Update Tracking" : "Confirm Shipping"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

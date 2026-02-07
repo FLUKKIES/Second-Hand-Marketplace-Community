@@ -45,7 +45,12 @@ export class AuthController {
         if (result && typeof result === 'object' && 'access_token' in result) {
             this.setCookie(res, (result as any).access_token);
             // Redirect to frontend (cookie will be set)
-            return res.redirect(`${process.env.FRONTEND_URL}/auth/google/callback`);
+            let redirectUrl = `${process.env.FRONTEND_URL}/auth/google/callback`;
+            console.log('Google Auth Result:', result);
+            if ((result as any).requiresPhone) {
+                redirectUrl += '?requiresPhone=true';
+            }
+            return res.redirect(redirectUrl);
         } else {
             // Redirect to login with error
             return res.redirect(`${process.env.FRONTEND_URL}/login?error=Google_Login_Failed`);

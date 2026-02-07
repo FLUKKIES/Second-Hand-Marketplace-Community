@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
+import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { GetUser } from 'src/common/auth/decorator/get-user.decorator';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -17,6 +18,11 @@ export class BankAccountsController {
   @Get('me')
   findAll(@GetUser('userId') userId: string) {
     return this.bankAccountsService.findAll(userId);
+  }
+
+  @Patch(':id')
+  update(@GetUser('userId') userId: string, @Param('id') id: string, @Body() updateBankAccountDto: UpdateBankAccountDto) {
+    return this.bankAccountsService.update(userId, id, updateBankAccountDto);
   }
 
   @Delete(':id')

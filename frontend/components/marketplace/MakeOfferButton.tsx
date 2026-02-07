@@ -82,6 +82,7 @@ export function MakeOfferButton({
       setIsOpen(false);
       setOfferedPrice(productPrice);
       setBuyerNote("");
+      if (onSuccess) onSuccess();
     } catch (error) {
       toast.error(getErrorMessage(error) || "Failed to make offer");
     } finally {

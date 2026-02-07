@@ -16,6 +16,7 @@ export default function MyOffersPage() {
     const [bankAccounts, setBankAccounts] = useState<any[]>([]); // NEW: Store accounts
     const [isLoading, setIsLoading] = useState(true);
     const [hasBankAccount, setHasBankAccount] = useState(false);
+    const [showCancelled, setShowCancelled] = useState(false);
     const [activeTab, setActiveTab] = useState<"sent" | "received">("sent");
 
     useEffect(() => {
@@ -39,6 +40,111 @@ export default function MyOffersPage() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Helper functions to filter offers
+    const getActive = (offers: Offer[]) => offers.filter(o => ["PENDING", "COUNTER_OFFERED"].includes(o.status));
+    const getCompleted = (offers: Offer[]) => offers.filter(o => o.status === "ACCEPTED");
+    const getCancelled = (offers: Offer[]) => offers.filter(o => ["REJECTED", "CANCELLED", "EXPIRED"].includes(o.status));
+
+    const renderOfferList = (offers: Offer[], role: "buyer" | "seller") => {
+        const active = getActive(offers);
+        const completed = getCompleted(offers);
+        const cancelled = getCancelled(offers);
+
+        return (
+            <div className="space-y-8">
+                {/* Active Section */}
+                <section>
+                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
+                        <div className="bg-indigo-50 p-2 rounded-lg">
+                            {role === 'buyer' ? <UserCheck className="text-indigo-600" size={20} /> : <Package className="text-indigo-600" size={20} />}
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-gray-900 text-lg">Active Offers</h2>
+                            <p className="text-sm text-gray-500">Offers currently in negotiation</p>
+                        </div>
+                    </div>
+
+                    {active.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500 text-sm">No active offers</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {active.map(offer => (
+                                <OfferCard key={offer.id} offer={offer} role={role} onUpdate={fetchOffers} hasUserBankAccount={hasBankAccount} />
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                {/* Completed Section (Successful) */}
+                <section>
+                    <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
+                        <div className="bg-green-50 p-2 rounded-lg">
+                            <ShoppingBag className="text-green-600" size={20} />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-gray-900 text-lg">Completed Offers</h2>
+                            <p className="text-sm text-gray-500">Succesfully accepted offers</p>
+                        </div>
+                    </div>
+
+                    {completed.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500 text-sm">No completed offers</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {completed.map(offer => (
+                                <OfferCard key={offer.id} offer={offer} role={role} onUpdate={fetchOffers} hasUserBankAccount={hasBankAccount} />
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                {/* Cancelled/Rejected Section (Collapsible) */}
+                <section>
+                    <button
+                        onClick={() => setShowCancelled(!showCancelled)}
+                        className="w-full flex items-center justify-between gap-3 pb-4 border-b border-gray-100 mb-4 mt-8 group hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-gray-200 transition-colors">
+                                <Package className="text-gray-600" size={20} />
+                            </div>
+                            <div className="text-left">
+                                <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                                    Cancelled / Rejected
+                                    <span className="text-xs font-normal bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                                        {cancelled.length}
+                                    </span>
+                                </h2>
+                                <p className="text-sm text-gray-500">Offers that didn't go through</p>
+                            </div>
+                        </div>
+                        <div className={`text-gray-400 transition-transform duration-300 ${showCancelled ? "rotate-180" : ""}`}>
+                            ▼
+                        </div>
+                    </button>
+
+                    {showCancelled && (
+                        cancelled.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200 animate-in fade-in slide-in-from-top-2">
+                                <p className="text-gray-500 text-sm">No cancelled offers</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 opacity-75 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2">
+                                {cancelled.map(offer => (
+                                    <OfferCard key={offer.id} offer={offer} role={role} onUpdate={fetchOffers} hasUserBankAccount={hasBankAccount} />
+                                ))}
+                            </div>
+                        )
+                    )}
+                </section>
+            </div>
+        );
     };
 
     return (
@@ -73,44 +179,32 @@ export default function MyOffersPage() {
                                     <button
                                         onClick={() => setActiveTab("sent")}
                                         className={`flex items-center gap-2 px-6 py-3 rounded-t-xl font-medium text-sm transition-all border-b-2 ${activeTab === "sent"
-                                                ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
-                                                : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                            ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
+                                            : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         <ShoppingBag size={18} />
                                         <span>Sent (Buying)</span>
-                                        {myOffers.filter((o: Offer) =>
-                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length > 0 && (
-                                                <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
-                                                    {
-                                                        myOffers.filter((o: Offer) =>
-                                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                        ).length
-                                                    }
-                                                </span>
-                                            )}
+                                        {getActive(myOffers).length > 0 && (
+                                            <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
+                                                {getActive(myOffers).length}
+                                            </span>
+                                        )}
                                     </button>
                                     <button
                                         onClick={() => setActiveTab("received")}
                                         className={`flex items-center gap-2 px-6 py-3 rounded-t-xl font-medium text-sm transition-all border-b-2 ${activeTab === "received"
-                                                ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
-                                                : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                            ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
+                                            : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         <Package size={18} />
                                         <span>Received (Selling)</span>
-                                        {incomingOffers.filter((o: Offer) =>
-                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length > 0 && (
-                                                <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
-                                                    {
-                                                        incomingOffers.filter((o: Offer) =>
-                                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                        ).length
-                                                    }
-                                                </span>
-                                            )}
+                                        {getActive(incomingOffers).length > 0 && (
+                                            <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full ml-1">
+                                                {getActive(incomingOffers).length}
+                                            </span>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -123,185 +217,9 @@ export default function MyOffersPage() {
                                     <Loader2 className="animate-spin text-primary" size={40} />
                                 </div>
                             ) : activeTab === "sent" ? (
-                                <div className="space-y-8">
-                                    {/* Active Section */}
-                                    <section>
-                                        <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
-                                            <div className="bg-indigo-50 p-2 rounded-lg">
-                                                <UserCheck className="text-indigo-600" size={20} />
-                                            </div>
-                                            <div>
-                                                <h2 className="font-bold text-gray-900 text-lg">
-                                                    Active Offers
-                                                </h2>
-                                                <p className="text-sm text-gray-500">
-                                                    Offers you are currently negotiating
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {myOffers.filter((o: Offer) =>
-                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length === 0 ? (
-                                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                                <p className="text-gray-500 text-sm">
-                                                    No active offers
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid gap-4">
-                                                {myOffers
-                                                    .filter((o: Offer) =>
-                                                        ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                    )
-                                                    .map((offer: Offer) => (
-                                                        <OfferCard
-                                                            key={offer.id}
-                                                            offer={offer}
-                                                            role="buyer"
-                                                            onUpdate={fetchOffers}
-                                                            hasUserBankAccount={hasBankAccount}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        )}
-                                    </section>
-
-                                    {/* History Section */}
-                                    <section>
-                                        <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
-                                            <div className="bg-gray-100 p-2 rounded-lg">
-                                                <ShoppingBag className="text-gray-600" size={20} />
-                                            </div>
-                                            <div>
-                                                <h2 className="font-bold text-gray-900 text-lg">
-                                                    Offer History
-                                                </h2>
-                                                <p className="text-sm text-gray-500">
-                                                    Past offers (Accepted, Rejected, Expired)
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {myOffers.filter(
-                                            (o: Offer) =>
-                                                !["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length === 0 ? (
-                                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                                <p className="text-gray-500 text-sm">
-                                                    No offer history
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                                                {myOffers
-                                                    .filter(
-                                                        (o: Offer) =>
-                                                            !["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                    )
-                                                    .map((offer: Offer) => (
-                                                        <OfferCard
-                                                            key={offer.id}
-                                                            offer={offer}
-                                                            role="buyer"
-                                                            onUpdate={fetchOffers}
-                                                            hasUserBankAccount={hasBankAccount}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        )}
-                                    </section>
-                                </div>
+                                renderOfferList(myOffers, "buyer")
                             ) : (
-                                <div className="space-y-8">
-                                    {/* Active Section */}
-                                    <section>
-                                        <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4">
-                                            <div className="bg-indigo-50 p-2 rounded-lg">
-                                                <Package className="text-indigo-600" size={20} />
-                                            </div>
-                                            <div>
-                                                <h2 className="font-bold text-gray-900 text-lg">
-                                                    Active Offers
-                                                </h2>
-                                                <p className="text-sm text-gray-500">
-                                                    Offers requiring your attention
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {incomingOffers.filter((o: Offer) =>
-                                            ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length === 0 ? (
-                                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                                <p className="text-gray-500 text-sm">
-                                                    No active offers
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid gap-4">
-                                                {incomingOffers
-                                                    .filter((o: Offer) =>
-                                                        ["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                    )
-                                                    .map((offer: Offer) => (
-                                                        <OfferCard
-                                                            key={offer.id}
-                                                            offer={offer}
-                                                            role="seller"
-                                                            onUpdate={fetchOffers}
-                                                            hasUserBankAccount={hasBankAccount}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        )}
-                                    </section>
-
-                                    {/* History Section */}
-                                    <section>
-                                        <div className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-4 mt-8">
-                                            <div className="bg-gray-100 p-2 rounded-lg">
-                                                <Package className="text-gray-600" size={20} />
-                                            </div>
-                                            <div>
-                                                <h2 className="font-bold text-gray-900 text-lg">
-                                                    Offer History
-                                                </h2>
-                                                <p className="text-sm text-gray-500">
-                                                    Past offers (Accepted, Rejected, Expired)
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {incomingOffers.filter(
-                                            (o: Offer) =>
-                                                !["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                        ).length === 0 ? (
-                                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                                <p className="text-gray-500 text-sm">
-                                                    No offer history
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                                                {incomingOffers
-                                                    .filter(
-                                                        (o: Offer) =>
-                                                            !["PENDING", "COUNTER_OFFERED"].includes(o.status)
-                                                    )
-                                                    .map((offer: Offer) => (
-                                                        <OfferCard
-                                                            key={offer.id}
-                                                            offer={offer}
-                                                            role="seller"
-                                                            onUpdate={fetchOffers}
-                                                            hasUserBankAccount={hasBankAccount}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        )}
-                                    </section>
-                                </div>
+                                renderOfferList(incomingOffers, "seller")
                             )}
                         </div>
                     </div>
