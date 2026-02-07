@@ -43,6 +43,9 @@ export interface User {
     bankAccounts?: BankAccount[];
     role?: string;
     acceptedTermsAt?: string | null;
+    followersCount?: number;
+    followingCount?: number;
+    isFollowing?: boolean;
 }
 
 export interface Category {

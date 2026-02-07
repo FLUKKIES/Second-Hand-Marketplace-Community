@@ -104,20 +104,15 @@ export function usePostDetail({ postId, isModal = false }: UsePostDetailProps) {
             });
             setIsDeleteDialogOpen(false);
 
-            // Use window.location.href to force full page reload
-            // This ensures the deleted post is removed from the feed
             if (isModal) {
-                // If in modal, get the referrer to go back to
-                const referrer = document.referrer;
-                if (referrer && referrer.includes(window.location.origin)) {
-                    const url = new URL(referrer);
-                    window.location.href = url.pathname;
-                } else {
-                    window.location.href = "/";
-                }
+                router.back();
+                setTimeout(() => {
+                    // Refresh the background page to remove the deleted post from the list
+                    router.refresh();
+                }, 100);
             } else {
-                // If in regular page view, go back with reload
-                window.location.href = document.referrer || "/";
+                router.replace("/");
+                router.refresh();
             }
         } catch (error: any) {
             console.error("Failed to delete post", error);

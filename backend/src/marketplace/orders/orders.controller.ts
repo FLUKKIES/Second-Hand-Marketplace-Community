@@ -25,6 +25,14 @@ export class OrdersController {
         return this.ordersService.getMySellingOrders(userId);
     }
 
+    @Get(':id')
+    getOrderById(
+        @GetUser('userId') userId: string,
+        @Param('id') orderId: string
+    ) {
+        return this.ordersService.getOrderById(userId, orderId);
+    }
+
     // 1. ผู้ซื้อแจ้งโอนเงิน
     @Patch(':id/pay') // PATCH /orders/uuid/pay
     confirmPayment(

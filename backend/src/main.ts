@@ -28,14 +28,14 @@ async function bootstrap() {
         },
     }));
 
-    const config = new DocumentBuilder()
-        .setTitle('Social Mart API')
-        .setDescription('The Social Mart API description')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+    // const config = new DocumentBuilder()
+    //     .setTitle('Social Mart API')
+    //     .setDescription('The Social Mart API description')
+    //     .setVersion('1.0')
+    //     .addBearerAuth()
+    //     .build();
+    // const document = SwaggerModule.createDocument(app, config);
+    // SwaggerModule.setup('api', app, document);
 
     await app.listen(process.env.PORT ?? 3001, '0.0.0.0');
     console.log(`Application is running on: ${await app.getUrl()}`);

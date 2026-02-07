@@ -146,7 +146,7 @@ function SearchPageContent() {
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : results.length > 0 ? (
-                  <div className={type === "groups" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-6"}>
+                  <div className={type === "groups" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-2"}>
                     {type === "groups" && results.map((group) => (
                       // Guard: Ensure it's actually a group (has name, no author)
                       (group.name && !group.author) && (

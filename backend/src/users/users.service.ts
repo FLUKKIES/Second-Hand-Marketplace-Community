@@ -22,6 +22,7 @@ export class UsersService {
 				avatarUrl: true,
 				bio: true,
 				role: true,
+				warningCount: true,
 				phoneNumber: true,
 				acceptedTermsAt: true,
 				createdAt: true,
@@ -68,7 +69,15 @@ export class UsersService {
 	}
 
 	// 3. ดูโปรไฟล์คนอื่น (Public Profile - เช่น ดูคนขาย)
-	async getPublicProfile(username: string) {
+	async getPublicProfile(username: string, currentUserId?: string) {
+		// First get the target user to find their ID
+		const targetUser = await this.prisma.user.findUnique({
+			where: { username },
+			select: { id: true }
+		});
+
+		if (!targetUser) throw new NotFoundException('User not found');
+
 		const user = await this.prisma.user.findUnique({
 			where: { username }, // ค้นหาด้วย username เพราะสวยกว่า ID ใน URL
 			select: {
@@ -79,16 +88,101 @@ export class UsersService {
 				avatarUrl: true,
 				bio: true,
 				createdAt: true,
+				warningCount: true,
 				// ไม่ส่ง email, address, phone ของเขาไปให้คนนอกเห็น (Privacy)
 				posts: {
-					take: 5, // แถมโพสต์ล่าสุด 5 อันให้ด้วย
-					where: { type: PostType.SELLING } // เฉพาะโพสต์ขายของ
+					take: 10, // แถมโพสต์ล่าสุด 5 อันให้ด้วย
+					where: { type: PostType.SELLING }, // เฉพาะโพสต์ขายของ
+					orderBy: { createdAt: 'desc' }
+				},
+				_count: {
+					select: {
+						followedBy: true, // followers count
+						following: true,  // following count
+					}
 				}
 			},
 		});
 
 		if (!user) throw new NotFoundException('User not found');
-		return user;
+
+		let isFollowing = false;
+		if (currentUserId) {
+			const follow = await this.prisma.follow.findUnique({
+				where: {
+					followerId_followingId: {
+						followerId: currentUserId,
+						followingId: targetUser.id,
+					}
+				}
+			});
+			isFollowing = !!follow;
+		}
+
+		return {
+			...user,
+			followersCount: user._count.followedBy,
+			followingCount: user._count.following,
+			isFollowing,
+		};
+	}
+
+	async followUser(followerId: string, followingId: string) {
+		if (followerId === followingId) {
+			throw new Error("You cannot follow yourself");
+		}
+
+		return this.prisma.follow.create({
+			data: {
+				followerId,
+				followingId
+			}
+		});
+	}
+
+	async unfollowUser(followerId: string, followingId: string) {
+		return this.prisma.follow.delete({
+			where: {
+				followerId_followingId: {
+					followerId,
+					followingId
+				}
+			}
+		});
+	}
+
+	async getFollowers(userId: string) {
+		return this.prisma.follow.findMany({
+			where: { followingId: userId },
+			include: {
+				follower: {
+					select: {
+						id: true,
+						username: true,
+						avatarUrl: true,
+						firstName: true,
+						lastName: true,
+					}
+				}
+			}
+		});
+	}
+
+	async getFollowing(userId: string) {
+		return this.prisma.follow.findMany({
+			where: { followerId: userId },
+			include: {
+				following: {
+					select: {
+						id: true,
+						username: true,
+						avatarUrl: true,
+						firstName: true,
+						lastName: true,
+					}
+				}
+			}
+		});
 	}
 	// ... existing methods ...
 
@@ -111,6 +205,80 @@ export class UsersService {
 				lastName: true,
 				avatarUrl: true,
 				bio: true,
+				role: true,
+				isBanned: true,
+				banReason: true,
+				warningCount: true,
+			}
+		});
+	}
+	// ... (search method)
+
+	async getAdminUserDetail(userId: string) {
+		const user = await this.prisma.user.findUnique({
+			where: { id: userId },
+			include: {
+				addresses: true,
+				bankAccounts: {
+					include: { bank: true }
+				}
+			}
+		});
+		if (!user) throw new NotFoundException('User not found');
+		return user;
+	}
+
+	// 4. Moderation Methods
+	async warnUser(userId: string, message: string) {
+		// Increment warning count
+		await this.prisma.user.update({
+			where: { id: userId },
+			data: {
+				warningCount: { increment: 1 }
+			}
+		});
+
+		// Create Notification
+		await this.prisma.notification.create({
+			data: {
+				userId,
+				type: "WARNING_RECEIVED",
+				title: "Warning from Admin",
+				message: message,
+				isRead: false
+			}
+		});
+
+		return { success: true };
+	}
+
+	async banUser(userId: string, durationDays: number | null, reason?: string) {
+		let banExpiresAt: Date | null = null;
+		if (durationDays) {
+			const date = new Date();
+			date.setDate(date.getDate() + durationDays);
+			banExpiresAt = date;
+		}
+
+		return this.prisma.user.update({
+			where: { id: userId },
+			data: {
+				isBanned: true,
+				bannedAt: new Date(),
+				banExpiresAt: banExpiresAt,
+				banReason: reason,
+			}
+		});
+	}
+
+	async unbanUser(userId: string) {
+		return this.prisma.user.update({
+			where: { id: userId },
+			data: {
+				isBanned: false,
+				bannedAt: null,
+				banExpiresAt: null,
+				banReason: null,
 			}
 		});
 	}

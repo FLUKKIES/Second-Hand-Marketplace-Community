@@ -17,6 +17,7 @@ export const metadata: Metadata = {
 
 import { RouteGuard } from "@/components/auth/RouteGuard";
 import { UserFeatures } from "@/components/UserFeatures";
+import { BanGuard } from "@/components/providers/ban-guard";
 
 export default function RootLayout({
   children,
@@ -34,6 +35,7 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
+          <BanGuard />
           <RouteGuard>
             <UserFeatures>
               <div className="relative flex min-h-screen flex-col">

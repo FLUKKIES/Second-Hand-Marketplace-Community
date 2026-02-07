@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+ import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePostDto, PostType } from './dto/create-post.dto';
@@ -138,15 +138,31 @@ export class PostsService {
                 select: { groupId: true }
             });
 
-            if (userGroups.length === 0) {
-                // CASE: User follows NO groups.
-                // Return empty list so frontend can show "Join Groups" CTA.
+            // 2. Get Followed User IDs
+            const following = await this.prisma.follow.findMany({
+                where: { followerId: userId },
+                select: { followingId: true }
+            });
+
+            const groupIds = userGroups.map(ug => ug.groupId);
+            const followingIds = following.map(f => f.followingId);
+
+            if (groupIds.length === 0 && followingIds.length === 0) {
+                // CASE: User follows NO groups AND NO users.
+                // Return empty list so frontend can show "Join Groups" or "Follow Users" CTA.
                 return [];
             }
 
-            const groupIds = userGroups.map(ug => ug.groupId);
-            // 2. Filter posts only from these groups
-            where.groupId = { in: groupIds };
+            // 3. Filter posts from these groups OR from followed users
+            where.OR = [];
+
+            if (groupIds.length > 0) {
+                where.OR.push({ groupId: { in: groupIds } });
+            }
+
+            if (followingIds.length > 0) {
+                where.OR.push({ authorId: { in: followingIds } });
+            }
         } else if (!userId && !query.groupId && !query.authorId && !query.categoryId) {
             // CASE: Guest (Global Feed) - No restriction on groupId
             // But if we want to random/recommend, we can leave as is (All posts).

@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   ShoppingBag,
+  Flag,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -18,6 +20,16 @@ const sidebarItems = [
     title: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Reports",
+    href: "/admin/reports",
+    icon: Flag,
+  },
+  {
+    title: "Users",
+    href: "/admin/users",
+    icon: UserCog,
   },
   {
     title: "Groups",

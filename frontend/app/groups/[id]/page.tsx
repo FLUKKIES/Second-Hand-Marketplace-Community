@@ -127,7 +127,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
         <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
             <Navbar />
 
-            <main className="flex-1 container pt-4 px-2 md:px-2 overflow-hidden">
+            <main className="flex-1 pt-4 px-2 md:px-2 overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 align-start h-full">
                     {/* Left Sidebar */}
                     <aside className="hidden md:block md:col-span-3 lg:col-span-3 h-full overflow-y-auto pb-20 scrollbar-hide">

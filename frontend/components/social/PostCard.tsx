@@ -16,7 +16,7 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -63,7 +63,19 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isBuyNowOpen, setIsBuyNowOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
   const isOwnPost = user?.id === post.author.id;
+
+  useEffect(() => {
+    if (textRef.current) {
+      // Check if content overflows (scrollHeight > clientHeight)
+      // We compare with the max-height we set in CSS (roughly 5-6 lines)
+      // e.g., if max-h is 160px.
+      const { scrollHeight, clientHeight } = textRef.current;
+      setIsTruncated(scrollHeight > clientHeight);
+    }
+  }, [post.content]);
 
   useEffect(() => {
     if (user) {
@@ -223,22 +235,33 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
       {/* Content */}
       <div className="px-5 pb-3">
         <Link href={`/post/${post.id}`} className="block group">
-          <p className="text-foreground/90 text-[15px] leading-relaxed whitespace-pre-wrap group-hover:text-foreground transition-colors">
+          <div
+            ref={textRef}
+            className="text-foreground/90 text-[15px] leading-relaxed whitespace-pre-wrap transition-all relative line-clamp-5 max-h-[160px] overflow-hidden group-hover:text-foreground"
+          >
             {post.content}
-          </p>
+          </div>
+
+          {/* Read more visual indicator */}
+          {isTruncated && (
+            <span
+              className="text-primary font-medium hover:underline text-sm mt-1 inline-block"
+            >
+              Read more
+            </span>
+          )}
         </Link>
       </div>
 
       {/* Images Grid */}
       {post.images && post.images.length > 0 && (
         <div
-          className={`grid gap-0.5 mt-2 overflow-hidden ${
-            post.images.length === 1
-              ? "grid-cols-1 aspect-video"
-              : post.images.length === 2
-                ? "grid-cols-2 aspect-2/1"
-                : "grid-cols-2 aspect-square"
-          }`}
+          className={`grid gap-0.5 mt-2 overflow-hidden ${post.images.length === 1
+            ? "grid-cols-1 aspect-video"
+            : post.images.length === 2
+              ? "grid-cols-2 aspect-2/1"
+              : "grid-cols-2 aspect-square"
+            }`}
         >
           {post.images.slice(0, 4).map((img, idx) => (
             <Link

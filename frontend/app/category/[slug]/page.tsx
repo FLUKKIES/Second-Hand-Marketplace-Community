@@ -10,23 +10,7 @@ import { LayoutGrid, Users, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  imageUrl?: string;
-}
-
-interface Group {
-  id: string;
-  name: string;
-  description: string | null;
-  imageUrl: string | null;
-  categoryId: number;
-  _count: {
-    members: number;
-  };
-}
+import { Group, Category } from "@/types";
 
 export default function CategoryPage() {
   const params = useParams();
@@ -87,11 +71,20 @@ export default function CategoryPage() {
       // Optimistic update
       setJoinedGroupIds((prev) => new Set(prev).add(groupId));
       setGroups((prev) =>
-        prev.map((g) =>
-          g.id === groupId
-            ? { ...g, _count: { ...g._count, members: g._count.members + 1 } }
-            : g,
-        ),
+        prev.map((g) => {
+          if (g.id === groupId) {
+            const currentCount = g._count ?? { members: 0, posts: 0 };
+            return {
+              ...g,
+              _count: {
+                ...currentCount,
+                members: currentCount.members + 1,
+                posts: currentCount.posts
+              }
+            };
+          }
+          return g;
+        })
       );
 
       await api.post(`/groups/${groupId}/join`, {});
@@ -104,17 +97,20 @@ export default function CategoryPage() {
         return next;
       });
       setGroups((prev) =>
-        prev.map((g) =>
-          g.id === groupId
-            ? {
-                ...g,
-                _count: {
-                  ...g._count,
-                  members: Math.max(0, g._count.members - 1),
-                },
+        prev.map((g) => {
+          if (g.id === groupId) {
+            const currentCount = g._count ?? { members: 0, posts: 0 };
+            return {
+              ...g,
+              _count: {
+                ...currentCount,
+                members: Math.max(0, currentCount.members - 1),
+                posts: currentCount.posts
               }
-            : g,
-        ),
+            };
+          }
+          return g;
+        })
       );
       toast.error(getErrorMessage(error));
     }
@@ -131,17 +127,20 @@ export default function CategoryPage() {
         return next;
       });
       setGroups((prev) =>
-        prev.map((g) =>
-          g.id === groupId
-            ? {
-                ...g,
-                _count: {
-                  ...g._count,
-                  members: Math.max(0, g._count.members - 1),
-                },
+        prev.map((g) => {
+          if (g.id === groupId) {
+            const currentCount = g._count ?? { members: 0, posts: 0 };
+            return {
+              ...g,
+              _count: {
+                ...currentCount,
+                members: Math.max(0, currentCount.members - 1),
+                posts: currentCount.posts
               }
-            : g,
-        ),
+            };
+          }
+          return g;
+        })
       );
 
       await api.delete(`/groups/${groupId}/leave`);
@@ -150,11 +149,20 @@ export default function CategoryPage() {
       // Revert on failure
       setJoinedGroupIds((prev) => new Set(prev).add(groupId));
       setGroups((prev) =>
-        prev.map((g) =>
-          g.id === groupId
-            ? { ...g, _count: { ...g._count, members: g._count.members + 1 } }
-            : g,
-        ),
+        prev.map((g) => {
+          if (g.id === groupId) {
+            const currentCount = g._count ?? { members: 0, posts: 0 };
+            return {
+              ...g,
+              _count: {
+                ...currentCount,
+                members: currentCount.members + 1,
+                posts: currentCount.posts
+              }
+            };
+          }
+          return g;
+        })
       );
       toast.error(getErrorMessage(error));
     }
@@ -172,7 +180,7 @@ export default function CategoryPage() {
     <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
       <Navbar />
 
-      <main className="flex-1 container pt-4 px-2 md:px-2 overflow-hidden">
+      <main className="flex-1 pt-4 px-2 md:px-2 overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 align-start h-full">
           {/* Left Sidebar */}
           <aside className="hidden md:block md:col-span-3 lg:col-span-3 h-full overflow-y-auto pb-20 scrollbar-hide">

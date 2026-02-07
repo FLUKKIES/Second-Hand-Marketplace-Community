@@ -52,6 +52,23 @@ export class AuthService {
         if (!user) throw new ForbiddenException('Credentials incorrect');
         if (!user.password) throw new ForbiddenException('Please login with Google');
 
+        // Check if user is banned
+        if (user.isBanned) {
+            if (user.banExpiresAt && new Date() > user.banExpiresAt) {
+                // Auto unban
+                await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: { isBanned: false, banExpiresAt: null, banReason: null, bannedAt: null }
+                });
+            } else {
+                throw new ForbiddenException({
+                    message: 'Your account has been suspended',
+                    reason: user.banReason,
+                    expiresAt: user.banExpiresAt
+                });
+            }
+        }
+
         // ตรวจสอบ Password
         const pwMatches = await argon2.verify(user.password, dto.password);
         if (!pwMatches) throw new ForbiddenException('Credentials incorrect');
@@ -86,6 +103,23 @@ export class AuthService {
                     avatarUrl: req.user.picture,
                 },
             });
+        }
+
+        // Check if user is banned
+        if (user.isBanned) {
+            if (user.banExpiresAt && new Date() > user.banExpiresAt) {
+                // Auto unban
+                await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: { isBanned: false, banExpiresAt: null, banReason: null, bannedAt: null }
+                });
+            } else {
+                throw new ForbiddenException({
+                    message: 'Your account has been suspended',
+                    reason: user.banReason,
+                    expiresAt: user.banExpiresAt
+                });
+            }
         }
 
         return this.signToken(user.id, user.email, user.role);

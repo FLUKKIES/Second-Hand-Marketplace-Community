@@ -1,143 +1,180 @@
 "use client";
 
-import { ArrowUpRight, TrendingUp, Users } from "lucide-react";
+import { MessageCircle, User, Users, MoreHorizontal } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useChat } from "@/contexts/ChatContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+
+interface FollowedUser {
+  // id: string; // Follow uses composite key, so no single ID
+  following: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  }
+}
 
 export function RightSidebar() {
-  const [groups, setGroups] = useState<
-    {
-      id: string;
-      name: string;
-      imageUrl: string | null;
-      _count?: { members: number };
-    }[]
-  >([]);
+  const { user: currentUser } = useAuth();
+  const { openChat } = useChat();
+  const [following, setFollowing] = useState<FollowedUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (currentUser) {
+      fetchFollowing(currentUser.id);
+    } else {
+      setFollowing([]);
+      setLoading(false);
     }
+  }, [currentUser]);
 
-    const fetchGroups = async () => {
-      try {
-        const user = localStorage.getItem("user");
-        if (user) {
-          // Try fetching my groups
-          const data = await api.get<any[]>("/groups/my-groups");
-          if (Array.isArray(data) && data.length > 0) {
-            setGroups(data.map((m: any) => m.group));
-            return;
-          }
-        }
-
-        // Fallback: Fetch all groups (e.g. suggested) if not logged in or no groups
-        const data = await api.get<any[]>("/groups");
-        if (Array.isArray(data)) {
-          // Sort by members count if available to suggest popular ones
-          const sorted = data.sort(
-            (a: any, b: any) =>
-              (b._count?.members || 0) - (a._count?.members || 0),
-          );
-          setGroups(sorted.slice(0, 5));
-        }
-      } catch (error) {
-        console.error("Failed to fetch groups", error);
-      } finally {
-        setLoading(false);
+  const fetchFollowing = async (userId: string) => {
+    try {
+      const data = await api.get<FollowedUser[]>(`/users/${userId}/following`);
+      if (Array.isArray(data)) {
+        setFollowing(data);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch following", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchGroups();
-  }, []);
+  const handleChatClick = (user: FollowedUser["following"]) => {
+    // Construct a User object compatible with openChat
+    openChat({
+      id: user.id,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      // Add other required fields with defaults if necessary, or Partial<User>
+    } as any);
+  };
 
-  return (
-    <div className="space-y-6">
-      {/* My Groups / Suggested Groups */}
+  if (!currentUser) {
+    return (
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Users className="text-indigo-600" size={20} />
             <h3 className="font-semibold text-sm text-gray-900">
-              {user ? "Your Groups" : "Popular Groups"}
+              Suggested Groups
+            </h3>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Login to see people you follow!
+        </p>
+        <Link
+          href="/login"
+          className="block w-full text-center py-2 mt-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+        >
+          Login Now
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <User className="text-indigo-600" size={20} />
+            <h3 className="font-semibold text-sm text-gray-900">
+              People You Follow
             </h3>
           </div>
         </div>
 
-        {!user && (
-          <p className="text-xs text-muted-foreground mb-3">
-            Join groups to see them here!
-          </p>
-        )}
-
         <div className="space-y-3">
-          {groups.map((group) => (
-            <Link
-              key={group.id}
-              href={`/groups/${group.id}`}
-              className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors group"
-            >
-              <img
-                src={
-                  api.getImageUrl(group.imageUrl) ||
-                  `https://api.dicebear.com/7.x/identicon/svg?seed=${group.name}`
-                }
-                alt={group.name}
-                className="w-10 h-10 rounded-xl bg-gray-100 object-cover border border-gray-100"
-              />
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
-                  {group.name}
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  {group._count?.members || 0} members
-                </p>
-              </div>
-            </Link>
-          ))}
-          {!loading && groups.length === 0 && (
+          {activeFollowList(following)}
+          {loading && (
             <p className="text-xs text-muted-foreground text-center py-4">
-              No groups found.
+              Loading...
+            </p>
+          )}
+          {!loading && following.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              You are not following anyone yet.
             </p>
           )}
         </div>
 
-        {(!user || groups.length < 3) && (
+        {following.length > 5 && (
           <Link
-            href="/groups"
+            href={`/profile/${currentUser.username}?tab=following`}
             className="block w-full text-center py-2 mt-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
           >
-            Discover More
+            View All
           </Link>
         )}
       </div>
-
-      {/* Suggested Categories / Tags */}
-      {/* <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <h3 className="font-semibold text-sm text-gray-900 mb-3">Trending Tags</h3>
-                <div className="flex flex-wrap gap-2">
-                    {['Photography', 'Sneakers', 'Camping', 'Coffee', 'UX Design', 'MechanicalKeyboards'].map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-gray-50 text-xs font-medium text-gray-600 rounded-full hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer transition-colors border border-transparent hover:border-indigo-100">
-                            #{tag}
-                        </span>
-                    ))}
-                </div>
-            </div> */}
-
-      {/* Ad Space (Optional) */}
-      {/* <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-md relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                <h3 className="font-bold text-lg mb-2 relative z-10">Sell Faster!</h3>
-                <p className="text-indigo-100 text-sm mb-4 relative z-10">Boost your post to reach 10x more people.</p>
-                <button className="w-full bg-white text-indigo-600 py-2 rounded-lg font-semibold text-sm hover:bg-indigo-50 transition relative z-10">
-                    Boost Now
-                </button>
-            </div> */}
     </div>
   );
+
+  function activeFollowList(list: FollowedUser[]) {
+    // Show max 5 for now
+    return list.slice(0, 5).map((item) => (
+      <div
+        key={item.following.id}
+        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+      >
+        <Link href={`/profile/${item.following.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+          <Avatar className="h-9 w-9 border border-gray-100">
+            <AvatarImage src={api.getImageUrl(item.following.avatarUrl)} />
+            <AvatarFallback>{item.following.username[0].toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-medium text-gray-800 truncate">
+              {item.following.firstName
+                ? `${item.following.firstName} ${item.following.lastName || ""}`
+                : item.following.username}
+            </h4>
+            <p className="text-xs text-muted-foreground truncate">
+              @{item.following.username}
+            </p>
+          </div>
+        </Link>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600">
+              <MoreHorizontal size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40 bg-white rounded-xl shadow-lg border-gray-100">
+            <Link href={`/profile/${item.following.username}`}>
+              <DropdownMenuItem className="cursor-pointer gap-2">
+                <User size={14} />
+                View Profile
+              </DropdownMenuItem>
+            </Link>
+            <DropdownMenuItem
+              className="cursor-pointer gap-2"
+              onClick={() => handleChatClick(item.following)}
+            >
+              <MessageCircle size={14} />
+              Chat
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ));
+  }
 }

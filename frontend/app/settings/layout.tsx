@@ -39,9 +39,9 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
         <div className="min-h-screen bg-gray-50/50">
             <Navbar />
             
-            <div className="container mx-auto px-4 py-6 max-w-7xl">
+            <div className="mx-auto px-4 py-6">
                 {/* Content Area */}
-                <div className="mx-auto w-full">
+                <div className="mx-auto w-full pl-2">
                     <div className="mb-6">
                         <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
                         <p className="text-gray-500">Manage your account preferences and settings.</p>

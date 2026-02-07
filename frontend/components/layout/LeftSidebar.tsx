@@ -111,8 +111,8 @@ export function LeftSidebar() {
       </nav>
 
       <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50">
-        <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-          <div className="flex gap-x-3 gap-y-1.5 flex-wrap">
+        <div className="flex flex-col gap-3 text-xs text-muted-foreground te">
+          {/* <div className="flex gap-x-3 gap-y-1.5 flex-wrap">
             <Link href="#" className="hover:text-primary transition-colors">
               About
             </Link>
@@ -125,8 +125,8 @@ export function LeftSidebar() {
             <Link href="#" className="hover:text-primary transition-colors">
               Help
             </Link>
-          </div>
-          <p className="opacity-60">© 2026 GroupMart</p>
+          </div> */}
+          <p className="opacity-60 text-center">© 2026 GroupMart</p>
         </div>
       </div>
     </div>

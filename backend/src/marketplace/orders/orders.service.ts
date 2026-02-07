@@ -294,6 +294,28 @@ export class OrdersService {
             orderBy: { createdAt: 'desc' }
         });
     }
+
+    // 8. Get Single Order (Buyer or Seller)
+    async getOrderById(userId: string, orderId: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                buyer: { select: { id: true, username: true, avatarUrl: true } },
+                seller: { select: { id: true, username: true, avatarUrl: true } },
+                items: { include: { product: true } },
+                review: true
+            }
+        });
+
+        if (!order) throw new NotFoundException('Order not found');
+
+        // Access Control: Only Buyer or Seller
+        if (order.buyerId !== userId && order.sellerId !== userId) {
+            throw new ForbiddenException('You do not have permission to view this order');
+        }
+
+        return order;
+    }
     // 8. Cron Job: Expire Unpaid Orders
     @Cron(CronExpression.EVERY_MINUTE)
     async handlePaymentCron() {

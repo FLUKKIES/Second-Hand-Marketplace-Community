@@ -1,8 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { OptionalJwtAuthGuard } from "src/common/auth/guards/optional-jwt-auth.guard";
 import { UsersService } from "./users.service";
 import { AuthGuard } from "@nestjs/passport";
 import { GetUser } from "src/common/auth/decorator/get-user.decorator";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { RolesGuard } from "src/common/auth/guards/roles.guard";
+import { Roles } from "src/common/auth/decorator/roles.decorator";
+import { Role } from "@prisma/client";
+import { BanUserDto } from "./dto/ban-user.dto";
 
 @Controller("users")
 export class UsersController {
@@ -44,8 +49,65 @@ export class UsersController {
         return this.usersService.search(keyword || '');
     }
 
+    @UseGuards(OptionalJwtAuthGuard)
     @Get(':username')
-    getProfile(@Param('username') username: string) {
-        return this.usersService.getPublicProfile(username);
+    getProfile(
+        @Param('username') username: string,
+        @GetUser('userId') userId?: string
+    ) {
+        return this.usersService.getPublicProfile(username, userId);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Post(':id/follow')
+    followUser(
+        @GetUser('userId') followerId: string,
+        @Param('id') followingId: string
+    ) {
+        return this.usersService.followUser(followerId, followingId);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Delete(':id/follow')
+    unfollowUser(
+        @GetUser('userId') followerId: string,
+        @Param('id') followingId: string
+    ) {
+        return this.usersService.unfollowUser(followerId, followingId);
+    }
+
+    @Get(':id/followers')
+    getFollowers(@Param('id') id: string) {
+        return this.usersService.getFollowers(id);
+    }
+
+    @Get(':id/following')
+    getFollowing(@Param('id') id: string) {
+        return this.usersService.getFollowing(id);
+    }
+
+    // ============================
+    // Admin Routes
+    // ============================
+
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(Role.ADMIN)
+    @Get('admin/:id')
+    getAdminUserDetail(@Param('id') id: string) {
+        return this.usersService.getAdminUserDetail(id);
+    }
+
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(Role.ADMIN)
+    @Post(':id/ban')
+    banUser(@Param('id') id: string, @Body() dto: BanUserDto) {
+        return this.usersService.banUser(id, dto.durationDays || null, dto.reason);
+    }
+
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(Role.ADMIN)
+    @Post(':id/unban')
+    unbanUser(@Param('id') id: string) {
+        return this.usersService.unbanUser(id);
     }
 }
