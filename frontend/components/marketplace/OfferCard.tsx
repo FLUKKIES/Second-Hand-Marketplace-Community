@@ -43,6 +43,7 @@ interface OfferCardProps {
   role: "buyer" | "seller";
   onUpdate?: () => void;
   hasUserBankAccount?: boolean;
+  hideUserProfile?: boolean;
 }
 
 export function OfferCard({
@@ -51,6 +52,7 @@ export function OfferCard({
   onUpdate,
   hasUserBankAccount,
   userBankAccounts,
+  hideUserProfile,
 }: OfferCardProps & { userBankAccounts?: BankAccount[] }) {
   const [isCounterDialogOpen, setIsCounterDialogOpen] = useState(false);
   const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
@@ -270,7 +272,7 @@ export function OfferCard({
               {product.description || "No description"}
             </p>
 
-            {isSeller && offer.buyer && (
+            {isSeller && offer.buyer && !hideUserProfile && (
               <Link
                 href={`/profile/${offer.buyer.username}`}
                 className="flex items-center gap-2 mt-2 hover:opacity-80 transition-opacity w-fit"
@@ -336,6 +338,9 @@ export function OfferCard({
           )}
 
           <div className="text-xs text-muted-foreground pt-2">
+            {new Date(offer.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}{' '}
+            {new Date(offer.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            {' · '}
             {formatDistanceToNow(new Date(offer.createdAt), {
               addSuffix: true,
             })}

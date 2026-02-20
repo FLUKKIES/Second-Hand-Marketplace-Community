@@ -121,7 +121,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                             {order.status.replace("_", " ")}
                                         </Badge>
                                     </h1>
-                                    <p className="text-sm text-gray-500">ID: {order.id}</p>
+                                    <p className="text-sm text-gray-500">
+                                        ID: {order.id} • {new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
                                 </div>
                             </div>
 
@@ -219,10 +221,34 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                         </div>
                                     ))}
                                 </div>
-                                <div className="p-4 bg-gray-50 flex justify-between items-center border-t border-gray-100">
-                                    <span className="font-medium text-gray-600">Total Order Amount</span>
-                                    <span className="text-xl font-bold text-indigo-600">{formatCurrency(Number(order.totalPrice))}</span>
-                                </div>
+                                {(() => {
+                                    const itemsSubtotal = order.items.reduce(
+                                        (sum, item) => sum + Number(item.price) * item.quantity, 0
+                                    );
+                                    const shippingCost = Number(order.totalPrice) - itemsSubtotal;
+
+                                    return (
+                                        <div className="p-4 bg-gray-50 border-t border-gray-100 space-y-2">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-500">Subtotal</span>
+                                                <span className="font-medium text-gray-700">{formatCurrency(itemsSubtotal)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-500 flex items-center gap-1.5">
+                                                    <Truck size={14} />
+                                                    Shipping
+                                                </span>
+                                                <span className={`font-medium ${shippingCost <= 0 ? 'text-green-600' : 'text-gray-700'}`}>
+                                                    {shippingCost <= 0 ? 'Free' : formatCurrency(shippingCost)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                                <span className="font-semibold text-gray-900">Total</span>
+                                                <span className="text-xl font-bold text-indigo-600">{formatCurrency(Number(order.totalPrice))}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </section>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Flag,
   UserCog,
+  Landmark,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,19 +23,14 @@ const sidebarItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Reports",
-    href: "/admin/reports",
-    icon: Flag,
-  },
-  {
     title: "Users",
     href: "/admin/users",
     icon: UserCog,
   },
   {
-    title: "Groups",
-    href: "/admin/groups",
-    icon: Users,
+    title: "Reports",
+    href: "/admin/reports",
+    icon: Flag,
   },
   {
     title: "Categories",
@@ -42,10 +38,20 @@ const sidebarItems = [
     icon: Grid,
   },
   {
-    title: "Products",
-    href: "/admin/products",
-    icon: ShoppingBag,
+    title: "Groups",
+    href: "/admin/groups",
+    icon: Users,
   },
+  {
+    title: "Banks",
+    href: "/admin/banks",
+    icon: Landmark,
+  },
+  // {
+  //   title: "Products",
+  //   href: "/admin/products",
+  //   icon: ShoppingBag,
+  // },
 ];
 
 export function AdminSidebar() {

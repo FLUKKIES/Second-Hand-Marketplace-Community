@@ -15,6 +15,7 @@ export interface Bank {
     id: string;
     name: string;
     code: string;
+    officialName: string;
     logoUrl: string | null;
 }
 
@@ -98,6 +99,7 @@ export interface Post {
     id: string;
     content: string;
     type: PostType;
+    shippingCost?: string;
     authorId: string;
     groupId: string;
     createdAt: string;

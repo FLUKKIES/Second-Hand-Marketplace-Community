@@ -2,12 +2,14 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { Prisma } from '@prisma/client';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
-import { PostType, Role } from '@prisma/client';
+import { PostType, Role, NotificationType } from '@prisma/client';
+import { NotificationService } from 'src/common/notification/notification.service';
 
 @Injectable()
 export class UsersService {
 	constructor(
-		private readonly prisma: PrismaService
+		private readonly prisma: PrismaService,
+		private readonly notificationService: NotificationService
 	) { }
 
 	// 1. ดูข้อมูลส่วนตัว (Me)
@@ -116,7 +118,9 @@ export class UsersService {
 
 		if (!user) throw new NotFoundException('User not found');
 
+
 		let isFollowing = false;
+
 		if (currentUserId) {
 			const follow = await this.prisma.follow.findUnique({
 				where: {
@@ -129,11 +133,20 @@ export class UsersService {
 			isFollowing = !!follow;
 		}
 
+		// Calculate Average Rating
+		const ratings = await this.prisma.review.aggregate({
+			where: { targetId: user.id },
+			_avg: { rating: true },
+			_count: { rating: true }
+		});
+
 		return {
 			...user,
 			followersCount: user._count.followedBy,
 			followingCount: user._count.following,
 			isFollowing,
+			rating: ratings._avg.rating || 0,
+			reviewCount: ratings._count.rating || 0
 		};
 	}
 
@@ -249,15 +262,12 @@ export class UsersService {
 		});
 
 		// Create Notification
-		await this.prisma.notification.create({
-			data: {
-				userId,
-				type: "WARNING_RECEIVED",
-				title: "Warning from Admin",
-				message: message,
-				isRead: false
-			}
-		});
+		await this.notificationService.createNotification(
+			userId,
+			NotificationType.WARNING_RECEIVED,
+			"Warning from Admin",
+			message
+		);
 
 		return { success: true };
 	}

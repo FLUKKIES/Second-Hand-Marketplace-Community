@@ -1,90 +1,114 @@
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: marketplace-prod-db
-    restart: always
-    env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - pgdata-prod:/var/lib/postgresql/data
-    networks:
-      - marketplace-prod-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    postgres:
+        image: pgvector/pgvector:pg16
+        container_name: marketplace-prod-db
+        restart: always
+        env_file:
+            - .env.prod
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+        volumes:
+            - pgdata-prod:/var/lib/postgresql/data
+        networks:
+            - marketplace-prod-network
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-    container_name: marketplace-prod-backend
-    restart: always
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
-      PORT: 3000
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - marketplace-prod-network
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.prod
+        container_name: marketplace-prod-backend
+        restart: always
+        env_file:
+            - ./backend/.env.prod
+        environment:
+            # We don't need to repeat vars here if they are in the env_file
+            # unless we need variable substitution from the ROOT .env.prod
+            # But since we put everything in backend/.env.prod, we can simplify given the user request.
+            # However, DATABASE_URL relies on fixed credentials in the file now.
+            PORT: 3001
+        depends_on:
+            postgres:
+                condition: service_healthy
+            ollama:
+                condition: service_healthy
+        networks:
+            - marketplace-prod-network
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    container_name: marketplace-prod-frontend
-    restart: always
-    env_file:
-      - .env
-    environment:
-      NEXT_PUBLIC_API_URL: /api
-    depends_on:
-      - backend
-    networks:
-      - marketplace-prod-network
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.prod
+        container_name: marketplace-prod-frontend
+        restart: always
+        env_file:
+            - ./frontend/.env.prod
+        depends_on:
+            - backend
+        networks:
+            - marketplace-prod-network
 
-  nginx:
-    image: nginx:alpine
-    container_name: marketplace-prod-nginx
-    restart: always
-    volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "80:80"
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - marketplace-prod-network
+    nginx:
+        image: nginx:alpine
+        container_name: marketplace-prod-nginx
+        restart: always
+        volumes:
+            - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+        ports:
+            - "80:80"
+        depends_on:
+            - frontend
+            - backend
+        networks:
+            - marketplace-prod-network
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: marketplace-prod-ngrok
-    restart: unless-stopped
-    command:
-      - "http"
-      - "nginx:80"
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    ports:
-      - 4040:4040
-    depends_on:
-      - nginx
-    networks:
-      - marketplace-prod-network
+    ngrok:
+        image: ngrok/ngrok:latest
+        container_name: marketplace-prod-ngrok
+        restart: unless-stopped
+        command:
+            - "http"
+            - "nginx:80"
+        environment:
+            NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+            NGROK_DOMAIN: ${NGROK_DOMAIN}
+        env_file:
+            - .env.prod
+        ports:
+            - 4040:4040
+        depends_on:
+            - nginx
+        networks:
+            - marketplace-prod-network
+
+    ollama:
+        image: ollama/ollama:latest
+        container_name: marketplace-prod-ollama
+        # Run serve, wait a bit, then pull the model
+        entrypoint: /bin/sh
+        command: -c "ollama serve & sleep 5 && ollama pull bge-m3 && wait"
+        volumes:
+            - ollama_storage_prod:/root/.ollama
+        restart: always
+        networks:
+            - marketplace-prod-network
+        healthcheck:
+            test: [ "CMD-SHELL", "ollama list | grep 'bge-m3' || exit 1" ]
+            interval: 10s
+            timeout: 5s
+            retries: 20
 
 volumes:
-  pgdata-prod:
+    pgdata-prod:
+    ollama_storage_prod:
 
 
 networks:
-  marketplace-prod-network:
-    driver: bridge
+    marketplace-prod-network:
+        driver: bridge

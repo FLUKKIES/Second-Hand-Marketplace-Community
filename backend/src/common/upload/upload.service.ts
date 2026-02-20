@@ -25,6 +25,7 @@ export class UploadService {
             mimeType: file.mimetype,
         };
     }
+    
     async deleteFile(fileUrl: string) {
         try {
             // Check if it's a relative path from our system

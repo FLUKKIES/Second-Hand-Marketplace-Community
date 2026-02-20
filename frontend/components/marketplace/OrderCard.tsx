@@ -29,9 +29,10 @@ interface OrderCardProps {
     order: Order;
     role: "buyer" | "seller";
     onUpdate: () => void;
+    hideUserProfile?: boolean;
 }
 
-export function OrderCard({ order, role, onUpdate }: OrderCardProps) {
+export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardProps) {
     const isBuyer = role === "buyer";
     const otherParty = isBuyer ? order.seller : order.buyer;
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -55,7 +56,7 @@ export function OrderCard({ order, role, onUpdate }: OrderCardProps) {
                 <div className="flex justify-between items-start mb-4 border-b border-gray-50 pb-3">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            {otherParty ? (
+                            {!hideUserProfile && otherParty ? (
                                 <Link href={`/profile/${otherParty.username}`} className="flex items-center gap-2 group">
                                     <Avatar className="h-6 w-6 border border-gray-200">
                                         <AvatarImage src={api.getImageUrl(otherParty.avatarUrl)} />
@@ -65,17 +66,17 @@ export function OrderCard({ order, role, onUpdate }: OrderCardProps) {
                                         {isBuyer ? "Seller" : "Buyer"}: {otherParty.username}
                                     </span>
                                 </Link>
-                            ) : (
+                            ) : !hideUserProfile ? (
                                 <span className="text-sm font-medium text-gray-900">
                                     {isBuyer ? "Seller" : "Buyer"}: Unknown
                                 </span>
-                            )}
+                            ) : null}
                             <Badge variant="outline" className={getStatusColor(order.status)}>
                                 {order.status.replace("_", " ")}
                             </Badge>
                         </div>
-                        <span className="text-xs text-gray-500 pl-8">
-                            Order ID: {order.id.slice(0, 8)} • {new Date(order.createdAt).toLocaleDateString()}
+                        <span className={`text-xs text-gray-500 ${hideUserProfile ? '' : 'pl-8'}`}>
+                            Order ID: {order.id.slice(0, 8)} • {new Date(order.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                     </div>
                     <div className="text-right">

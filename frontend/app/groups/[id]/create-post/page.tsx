@@ -19,6 +19,7 @@ import {
     ImagePlus,
     X,
     ShoppingBag,
+    Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -71,6 +72,9 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
             imagePreview: null,
         },
     ]);
+
+    // Shipping Cost
+    const [shippingCost, setShippingCost] = useState<string>("0");
 
     // Handle Image Upload for Normal Post
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,6 +199,7 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
                 content: string;
                 type: "SELLING" | "NORMAL";
                 imageUrls?: string[];
+                shippingCost?: number;
                 products?: {
                     name: string;
                     price: number;
@@ -220,6 +225,7 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
 
             // 2. Upload Product Images & Prepare Data
             if (isSelling) {
+                payload.shippingCost = parseFloat(shippingCost) || 0;
                 const productData = await Promise.all(
                     products.map(async (p) => {
                         let imageUrl = "";
@@ -392,6 +398,38 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
                     {/* 3. Product Form (Conditional) */}
                     {isSelling && (
                         <div className="space-y-6 animate-in slide-in-from-top-4 fade-in duration-500">
+                            {/* Shipping Cost */}
+                            <div className="relative overflow-hidden rounded-2xl border-2 border-gray-100 bg-gradient-to-br from-white to-blue-50/30 p-5">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                                        <Truck size={22} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">Shipping Cost</h3>
+                                        <p className="text-sm text-gray-500 mt-0.5">
+                                            Set the shipping cost for this post (applies to all products)
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                                        Shipping Cost (฿)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        placeholder="0"
+                                        min="0"
+                                        step="0.01"
+                                        value={shippingCost}
+                                        onChange={(e) => setShippingCost(e.target.value)}
+                                        className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200 max-w-xs"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        {parseFloat(shippingCost) === 0 ? "Free Shipping 🎉" : `฿${parseFloat(shippingCost || "0").toLocaleString()} per order`}
+                                    </p>
+                                </div>
+                            </div>
+
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -411,9 +449,6 @@ export default function CreatePostPage({ params }: CreatePostPageProps) {
                                         Add Product
                                     </Button>
                                 </div>
-                                <p className="text-sm text-red-500 italic px-1">
-                                    * หมายเหตุ: ราคาที่ระบุต้องเป็นราคารวมค่าจัดส่งแล้ว เนื่องจากระบบยังไม่รองรับการคิดค่าจัดส่งแยก
-                                </p>
                             </div>
 
                             <div className="grid grid-cols-1 gap-5">

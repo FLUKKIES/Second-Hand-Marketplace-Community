@@ -1,43 +1,55 @@
-import { Card } from "@/components/ui/card";
-import { Users, Grid, ShoppingBag, DollarSign, Flag } from "lucide-react";
-import Link from "next/link";
+"use client";
 
-const stats = [
-  {
-    title: "Total Users",
-    value: "1,234",
-    change: "+12%",
-    icon: Users,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
-  },
-  {
-    title: "Total Groups",
-    value: "56",
-    change: "+4%",
-    icon: Grid,
-    color: "text-purple-600",
-    bg: "bg-purple-100",
-  },
-  {
-    title: "Active Listings",
-    value: "892",
-    change: "+23%",
-    icon: ShoppingBag,
-    color: "text-indigo-600",
-    bg: "bg-indigo-100",
-  },
-  {
-    title: "Revenue (Month)",
-    value: "฿45,230",
-    change: "+8%",
-    icon: DollarSign,
-    color: "text-green-600",
-    bg: "bg-green-100",
-  },
-];
+import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Users, Grid, ShoppingBag, DollarSign, Flag, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+
+interface DashboardStats {
+  totalUsers: number;
+}
 
 export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await api.get<DashboardStats>("/admin/stats");
+        setStats(data);
+      } catch (error) {
+        toast.error("Failed to load dashboard stats");
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statItems = [
+    {
+      title: "Total Users",
+      value: stats?.totalUsers.toLocaleString() || "0",
+      change: "Real-time",
+      icon: Users,
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -46,7 +58,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => (
+        {statItems.map((stat, idx) => (
           <Card key={idx} className="p-6 border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div
@@ -54,7 +66,7 @@ export default function AdminDashboardPage() {
               >
                 <stat.icon className={stat.color} size={24} />
               </div>
-              <span className="text-sm font-medium text-green-600 bg-green-50 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
                 {stat.change}
               </span>
             </div>
@@ -112,14 +124,6 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="p-6 border-gray-100 shadow-sm h-[400px] flex items-center justify-center text-gray-400">
-          Chart Placeholder (Revenue)
-        </Card>
-        <Card className="p-6 border-gray-100 shadow-sm h-[400px] flex items-center justify-center text-gray-400">
-          Chart Placeholder (User Growth)
-        </Card>
-      </div>
     </div>
   );
 }

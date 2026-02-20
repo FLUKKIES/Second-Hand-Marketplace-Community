@@ -12,6 +12,7 @@ import { ShoppingBag, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { AuthNavbar } from "@/components/common/AuthNavbar";
 
 import { BanNoticeDialog } from "@/components/auth/BanNoticeDialog";
+import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -19,7 +20,24 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEmail(e.target.value);
+        if (fieldErrors.email) {
+            setFieldErrors({ ...fieldErrors, email: "" });
+        }
+        setError("");
+    };
+
+    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setPassword(e.target.value);
+        if (fieldErrors.password) {
+            setFieldErrors({ ...fieldErrors, password: "" });
+        }
+        setError("");
+    };
 
     const [showPassword, setShowPassword] = useState(false);
 
@@ -29,6 +47,25 @@ export default function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setFieldErrors({});
+
+        // Client-side validation
+        const errors: Record<string, string> = {};
+        if (!email.trim()) {
+            errors.email = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.email = "Invalid email format";
+        }
+
+        if (!password) {
+            errors.password = "Password is required";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -104,11 +141,20 @@ export default function LoginPage() {
                                         autoComplete="email"
                                         required
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="pl-10 block w-full"
+                                        onChange={handleEmailChange}
+                                        className={cn(
+                                            "pl-10 block w-full",
+                                            fieldErrors.email && "border-red-500 focus:ring-red-500"
+                                        )}
                                         placeholder="Email Address"
                                     />
                                 </div>
+                                {fieldErrors.email && (
+                                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        {fieldErrors.email}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Password */}
@@ -124,11 +170,14 @@ export default function LoginPage() {
                                         autoComplete="current-password"
                                         required
                                         value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="pl-10 pr-10 block w-full"
+                                        onChange={handlePasswordChange}
+                                        className={cn(
+                                            "pl-10 pr-10 block w-full",
+                                            fieldErrors.password && "border-red-500 focus:ring-red-500"
+                                        )}
                                         placeholder="Password"
                                     />
-                            
+
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}

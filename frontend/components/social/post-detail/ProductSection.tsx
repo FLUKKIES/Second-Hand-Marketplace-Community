@@ -18,6 +18,7 @@ import {
   X,
   MapPin,
   MessageCircle,
+  Truck,
 } from "lucide-react";
 
 interface ProductSectionProps {
@@ -199,6 +200,32 @@ export function ProductSection({
           </span>
         </div>
 
+        {/* Shipping Cost */}
+        {post.shippingCost !== undefined && (
+          <div className="mb-4 flex items-center gap-2">
+            <Truck
+              className={cn(
+                "w-4 h-4",
+                parseFloat(post.shippingCost) === 0
+                  ? "text-green-600"
+                  : "text-blue-600",
+              )}
+            />
+            <span
+              className={cn(
+                "text-sm font-medium",
+                parseFloat(post.shippingCost) === 0
+                  ? "text-green-600"
+                  : "text-blue-600",
+              )}
+            >
+              {parseFloat(post.shippingCost) === 0
+                ? "Free Shipping"
+                : `Shipping: ฿${parseFloat(post.shippingCost).toLocaleString()}`}
+            </span>
+          </div>
+        )}
+
         <p className="text-muted-foreground text-sm mb-6 leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/30">
           {selectedProduct.description || "No description available."}
         </p>
@@ -214,42 +241,52 @@ export function ProductSection({
           const myOffers = selectedProduct.offers || [];
           const alreadyOffered = myOffers.length > 0;
 
+          const isOwnPost = user?.id === post.author.id;
+
           return (
             <div className="space-y-3 relative z-10">
-              {selectedProduct.stock > 0 &&
-                !alreadyOffered &&
-                !post.deletedAt && (
-                  <div className="flex gap-2">
-                    <BuyNowButton
-                      productId={selectedProduct.id}
-                      productName={selectedProduct.name}
-                      productPrice={selectedProduct.price}
-                      onSuccess={onUpdate}
-                    />
-                    <MakeOfferButton
-                      productId={selectedProduct.id}
-                      productName={selectedProduct.name}
-                      productPrice={selectedProduct.price}
-                      onSuccess={onUpdate}
-                    />
-                  </div>
-                )}
-              {alreadyOffered && (
-                <div className="text-center text-xs text-orange-600 font-medium bg-orange-50 p-2 rounded-lg border border-orange-100">
-                  You have a pending offer for this item
+              {isOwnPost ? (
+                <div className="text-center text-xs text-muted-foreground font-medium bg-muted/50 p-3 rounded-xl border border-border/50">
+                  This is your listing
                 </div>
-              )}
-              {user && user.id !== post.author.id && (
-                <Button
-                  variant="outline"
-                  className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 h-11 rounded-xl transition-all hover:border-blue-300 hover:-translate-y-0.25"
-                  onClick={() => {
-                    openChat(post.author as any);
-                  }}
-                >
-                  <MessageCircle className="w-5 h-5 mr-2" />
-                  Contact Seller
-                </Button>
+              ) : (
+                <>
+                  {selectedProduct.stock > 0 &&
+                    !alreadyOffered &&
+                    !post.deletedAt && (
+                      <div className="flex gap-2">
+                        <BuyNowButton
+                          productId={selectedProduct.id}
+                          productName={selectedProduct.name}
+                          productPrice={selectedProduct.price}
+                          onSuccess={onUpdate}
+                        />
+                        <MakeOfferButton
+                          productId={selectedProduct.id}
+                          productName={selectedProduct.name}
+                          productPrice={selectedProduct.price}
+                          onSuccess={onUpdate}
+                        />
+                      </div>
+                    )}
+                  {alreadyOffered && (
+                    <div className="text-center text-xs text-orange-600 font-medium bg-orange-50 p-2 rounded-lg border border-orange-100">
+                      You have a pending offer for this item
+                    </div>
+                  )}
+                  {user && user.id !== post.author.id && (
+                    <Button
+                      variant="outline"
+                      className="w-full border-blue-200 text-blue-600 hover:bg-blue-50 h-11 rounded-xl transition-all hover:border-blue-300 hover:-translate-y-0.25"
+                      onClick={() => {
+                        openChat(post.author as any);
+                      }}
+                    >
+                      <MessageCircle className="w-5 h-5 mr-2" />
+                      Contact Seller
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           );

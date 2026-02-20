@@ -69,6 +69,7 @@ export class PostsService {
                     type: dto.type as any,
                     authorId: userId,
                     groupId: dto.groupId!,
+                    shippingCost: dto.shippingCost ?? 0,
                     images: dto.imageUrls && dto.imageUrls.length > 0
                         ? { create: dto.imageUrls.map((url) => ({ url })) }
                         : undefined,

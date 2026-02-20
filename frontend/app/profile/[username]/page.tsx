@@ -41,6 +41,8 @@ interface UserProfile {
     followersCount?: number;
     followingCount?: number;
     isFollowing?: boolean;
+    rating?: number;
+    reviewCount?: number;
 }
 
 export default function ProfilePage() {
@@ -48,7 +50,7 @@ export default function ProfilePage() {
     const router = useRouter();
     const username = params.username as string;
     const { user } = useAuth();
-    const { openChat } = useChat();
+    const { openChat, isUserOnline } = useChat();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -183,23 +185,40 @@ export default function ProfilePage() {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-1">
                             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                                 {/* Avatar */}
-                                <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                                    <AvatarImage src={api.getImageUrl(profile.avatarUrl)} />
-                                    <AvatarFallback className="text-3xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
-                                        {profile.username[0].toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
+                                <div className="relative">
+                                    <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                                        <AvatarImage src={api.getImageUrl(profile.avatarUrl)} />
+                                        <AvatarFallback className="bg-gray-100 text-gray-400">
+                                            <Users className="h-10 w-10" />
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    {isUserOnline(profile.id) && (
+                                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-[3px] border-white shadow-sm" title="Online" />
+                                    )}
+                                </div>
 
                                 {/* Profile Info */}
                                 <div className="flex-1 w-full">
                                     <div className="flex flex-col md:flex-row md:items-center gap-4 mb-3 justify-between">
                                         <div>
-                                            <h1 className="text-2xl font-bold text-gray-900">
+                                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                                                 {profile.firstName && profile.lastName
                                                     ? `${profile.firstName} ${profile.lastName}`
                                                     : profile.username}
                                             </h1>
-                                            <p className="text-gray-500">@{profile.username}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className="text-gray-500">@{profile.username}</p>
+                                                {/* Rating Display */}
+                                                <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                                                    <Star className={`w-3.5 h-3.5 ${(profile.rating || 0) > 0 ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                                                    <span className={`text-sm font-medium ${(profile.rating || 0) > 0 ? 'text-amber-700' : 'text-gray-500'}`}>
+                                                        {Number(profile.rating || 0).toFixed(1)}
+                                                    </span>
+                                                    <span className="text-xs text-amber-600/70">
+                                                        ({profile.reviewCount || 0})
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Action Buttons */}

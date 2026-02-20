@@ -18,9 +18,10 @@ export class RegisterDto {
     @IsString()
     lastName?: string;
 
-    @IsOptional()
     @IsString()
-    phoneNumber?: string;
+    @IsNotEmpty()
+    @MinLength(10, { message: 'Phone number must be at least 10 digits' })
+    phoneNumber: string;
 
     @IsString()
     @MinLength(6, { message: 'Password must be at least 6 characters' })

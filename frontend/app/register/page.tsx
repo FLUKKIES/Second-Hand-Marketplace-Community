@@ -35,7 +35,6 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [passwordStrength, setPasswordStrength] = useState(0);
     const [showHints, setShowHints] = useState<Record<string, boolean>>({});
     const router = useRouter();
 
@@ -57,39 +56,6 @@ export default function RegisterPage() {
         setShowHints({ ...showHints, [field]: false });
     };
 
-    // // Calculate password strength
-    // useEffect(() => {
-    //     const { password } = formData;
-    //     if (!password) {
-    //         setPasswordStrength(0);
-    //         return;
-    //     }
-
-    //     let strength = 0;
-    //     if (password.length >= 6) strength++;
-    //     if (password.length >= 10) strength++;
-    //     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-    //     if (/\d/.test(password)) strength++;
-    //     if (/[^a-zA-Z0-9]/.test(password)) strength++;
-
-    //     setPasswordStrength(Math.min(strength, 3)); // 0-3 scale
-    // }, [formData.password]);
-
-    // const getPasswordStrengthText = () => {
-    //     if (formData.password.length === 0) return "";
-    //     if (passwordStrength === 0) return "Too weak";
-    //     if (passwordStrength === 1) return "Weak";
-    //     if (passwordStrength === 2) return "Medium";
-    //     return "Strong";
-    // };
-
-    // const getPasswordStrengthColor = () => {
-    //     if (passwordStrength === 0) return "bg-red-500";
-    //     if (passwordStrength === 1) return "bg-orange-500";
-    //     if (passwordStrength === 2) return "bg-yellow-500";
-    //     return "bg-green-500";
-    // };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
@@ -98,8 +64,8 @@ export default function RegisterPage() {
         // Client-side validation
         const errors: Record<string, string> = {};
 
-        if (formData.password.length < 6) {
-            errors.password = "Password must be at least 6 characters";
+        if (formData.password.length < 8) {
+            errors.password = "Password must be at least 8 characters";
         }
 
         if (formData.password !== formData.confirmPassword) {
@@ -112,6 +78,12 @@ export default function RegisterPage() {
 
         if (!formData.email.trim()) {
             errors.email = "Email is required";
+        }
+
+        if (!formData.phoneNumber.trim()) {
+            errors.phoneNumber = "Phone number is required";
+        } else if (!/^\d{10}$/.test(formData.phoneNumber.replace(/[- ]/g, ''))) {
+            errors.phoneNumber = "Phone number must be 10 digits";
         }
 
         if (Object.keys(errors).length > 0) {
@@ -128,24 +100,35 @@ export default function RegisterPage() {
             await login();
         } catch (err: any) {
             console.error("Register failed", err);
-            const errorMsg = getErrorMessage(err);
+            const data = err.response?.data;
+            const newFieldErrors: Record<string, string> = {};
 
-            // Parse specific errors
-            if (
-                errorMsg.includes("Credentials taken") ||
-                errorMsg.includes("P2002")
-            ) {
-                setError(
-                    "This email or username is already registered. Please use a different one.",
-                );
-                setFieldErrors({
-                    email: "This email may already be in use",
-                    username: "This username may already be taken",
+            // 1. Handle Validation Errors (from main.ts exceptionFactory)
+            if (data?.errors && Array.isArray(data.errors)) {
+                data.errors.forEach((e: { field: string; message: string }) => {
+                    newFieldErrors[e.field] = e.message;
                 });
-            } else if (errorMsg.includes("Password must be at least 6 characters")) {
-                setFieldErrors({ password: errorMsg });
-            } else {
-                setError(errorMsg || "Registration failed. Please try again.");
+            }
+
+            // 2. Handle Manual Exceptions (e.g. 403 Forbidden from AuthService)
+            const message = data?.message || err.message;
+            if (message) {
+                if (message.includes("Email already in use")) {
+                    newFieldErrors.email = "This email is already registered";
+                } else if (message.includes("Username already in use")) {
+                    newFieldErrors.username = "This username is already taken";
+                } else if (message.includes("Phone number already in use")) {
+                    newFieldErrors.phoneNumber = "This phone number is already registered";
+                } else if (!data?.errors) {
+                    // Only show general error if it's not a validation error
+                    setError(message);
+                }
+            }
+
+            if (Object.keys(newFieldErrors).length > 0) {
+                setFieldErrors(newFieldErrors);
+            } else if (!error) {
+                setError("Registration failed. Please try again.");
             }
         } finally {
             setIsLoading(false);
@@ -300,14 +283,23 @@ export default function RegisterPage() {
                                         onChange={handleChange}
                                         onFocus={() => handleFocus("phoneNumber")}
                                         onBlur={() => handleBlur("phoneNumber")}
-                                        className="pl-10 block w-full"
+                                        className={cn(
+                                            "pl-10 block w-full",
+                                            fieldErrors.phoneNumber && "border-red-500 focus:ring-red-500",
+                                        )}
                                         placeholder="Phone Number"
                                     />
                                 </div>
                                 {showHints.phoneNumber && (
                                     <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
                                         <Info size={12} />
-                                        Optional - for order notifications
+                                        For order notifications and verification
+                                    </p>
+                                )}
+                                {fieldErrors.phoneNumber && (
+                                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        {fieldErrors.phoneNumber}
                                     </p>
                                 )}
                             </div>
@@ -367,7 +359,7 @@ export default function RegisterPage() {
                                 {showHints.password && !formData.password && (
                                     <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
                                         <Info size={12} />
-                                        At least 6 characters recommended
+                                        At least 8 characters recommended
                                     </p>
                                 )}
                                 {fieldErrors.password && (

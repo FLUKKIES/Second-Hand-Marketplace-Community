@@ -55,10 +55,6 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             // Show Toast
             toast(notification.title, {
                 description: notification.message,
-                action: {
-                    label: "View",
-                    onClick: () => console.log("Navigate to", notification), // TODO: Navigate based on data
-                },
             });
         };
 

@@ -39,7 +39,7 @@ export function LeftSidebar() {
 
   return (
     <div className="space-y-4">
-      {/* Mini Profile */}
+      {/* Mini Profile
       {user ? (
         <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50 flex items-center gap-3 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-500" />
@@ -79,7 +79,7 @@ export function LeftSidebar() {
             Log In / Register
           </Link>
         </div>
-      )}
+      )} */}
 
       {/* Main Navigation */}
       <nav className="bg-card rounded-2xl p-2 shadow-sm border border-border/50 space-y-1">

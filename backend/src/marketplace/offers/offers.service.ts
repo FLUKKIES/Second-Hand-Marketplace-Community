@@ -164,12 +164,12 @@ export class OffersService {
             return counteredOffer;
         }
 
-        // ACCEPT (existing logic continues...)
+        // ACCEPT — only update offer status + stock. Order created later via checkout.
 
         if (dto.action === OfferAction.ACCEPT) {
             if (offer.product.stock <= 0) throw new BadRequestException('Product is out of stock now');
 
-            // *** ENHANCED: Validate seller has bank account ***
+            // *** Validate seller has bank account (still needed for future order) ***
             const seller = await this.prisma.user.findUnique({
                 where: { id: sellerId },
                 select: {
@@ -182,33 +182,9 @@ export class OffersService {
                 throw new BadRequestException('Please add a bank account before accepting offers. Go to Settings → Bank Accounts');
             }
 
-            let bankAccount;
-            if (dto.bankAccountId) {
-                bankAccount = seller.bankAccounts.find(b => b.id === dto.bankAccountId);
-                if (!bankAccount) {
-                    throw new BadRequestException('Selected bank account not found');
-                }
-            } else {
-                bankAccount = seller.bankAccounts.find(b => b.isDefault) || seller.bankAccounts[0];
-            }
-
-            // *** NEW: Get buyer's default shipping address ***
-            const buyerAddresses = await this.prisma.address.findMany({
-                where: { userId: offer.buyerId }
-            });
-
-            if (!buyerAddresses || buyerAddresses.length === 0) {
-                throw new BadRequestException('Buyer has no shipping address. Please ask them to add one first.');
-            }
-
-            const defaultAddress = buyerAddresses.find(a => a.isDefault) || buyerAddresses[0];
-
-            // Format shipping address
-            const shippingAddress = `${defaultAddress.addressLine1}${defaultAddress.addressLine2 ? ', ' + defaultAddress.addressLine2 : ''}, ${defaultAddress.subDistrict}, ${defaultAddress.district}, ${defaultAddress.province} ${defaultAddress.postalCode}${defaultAddress.phoneNumber ? ' | Tel: ' + defaultAddress.phoneNumber : ''}`;
-
             return this.prisma.$transaction(async (tx) => {
-                // 1. Update Offer
-                await tx.offer.update({
+                // 1. Update Offer status
+                const acceptedOffer = await tx.offer.update({
                     where: { id: offerId },
                     data: {
                         status: OfferStatus.ACCEPTED,
@@ -216,38 +192,7 @@ export class OffersService {
                     }
                 });
 
-                // Construct snapshot
-                const paymentSnapshot = {
-                    sellerName: seller.username,
-                    bankName: bankAccount.bank.name,
-                    bankAccount: bankAccount.accountNumber,
-                    promptPay: ''
-                };
-
-                // 2. Create Order with proper shipping address
-                const order = await tx.order.create({
-                    data: {
-                        buyerId: offer.buyerId,
-                        sellerId: sellerId,
-                        totalPrice: offer.offeredPrice,
-                        status: OrderStatus.TO_PAY,
-                        shippingAddress: shippingAddress, // *** FIXED: Real address ***
-                        paymentSnapshot: paymentSnapshot as any,
-                        paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-                        items: {
-                            create: {
-                                productId: offer.productId,
-                                price: offer.offeredPrice,
-                                quantity: 1
-                            }
-                        },
-                        offers: {
-                            connect: { id: offerId }
-                        }
-                    }
-                });
-
-                // 3. Cut Stock
+                // 2. Cut Stock
                 const updatedProduct = await tx.product.update({
                     where: { id: offer.productId },
                     data: {
@@ -262,11 +207,11 @@ export class OffersService {
                         data: { isSoldOut: true }
                     });
 
-                    // *** NEW: Reject all other pending/countered offers for this product ***
+                    // Reject all other pending/countered offers for this product
                     await tx.offer.updateMany({
                         where: {
                             productId: offer.productId,
-                            id: { not: offerId }, // Exclude current offer
+                            id: { not: offerId },
                             status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
                         },
                         data: {
@@ -276,14 +221,13 @@ export class OffersService {
                     });
                 }
 
-                // EMIT EVENT: Offer Accepted (Notify Buyer)
+                // EMIT EVENT: Offer Accepted (Notify Buyer to checkout)
                 this.eventEmitter.emit('offer.accepted', {
                     buyerId: offer.buyerId,
-                    offerId: offer.id,
-                    orderId: order.id
+                    offerId: offer.id
                 });
 
-                return order;
+                return acceptedOffer;
             });
         }
     }
@@ -293,9 +237,11 @@ export class OffersService {
         return this.prisma.offer.findMany({
             where: {
                 product: { post: { authorId: userId } },
-                // REMOVED STATUS FILTER to allow history
             },
-            include: { buyer: { select: { username: true, avatarUrl: true } }, product: true },
+            include: {
+                buyer: { select: { id: true, username: true, avatarUrl: true } },
+                product: { include: { post: { select: { id: true, shippingCost: true, authorId: true, author: { select: { id: true, username: true, avatarUrl: true } } } } } }
+            },
             orderBy: { createdAt: 'desc' }
         });
     }
@@ -305,7 +251,46 @@ export class OffersService {
     async getMyOffers(userId: string) {
         return this.prisma.offer.findMany({
             where: { buyerId: userId },
-            include: { product: { include: { post: true } } },
+            include: {
+                product: {
+                    include: {
+                        post: {
+                            select: {
+                                id: true,
+                                shippingCost: true,
+                                authorId: true,
+                                author: { select: { id: true, username: true, avatarUrl: true } }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    // 5. Get Accepted Offers without Order (for checkout)
+    async getAcceptedOffers(buyerId: string) {
+        return this.prisma.offer.findMany({
+            where: {
+                buyerId: buyerId,
+                status: OfferStatus.ACCEPTED,
+                orderId: null,
+            },
+            include: {
+                product: {
+                    include: {
+                        post: {
+                            select: {
+                                id: true,
+                                shippingCost: true,
+                                authorId: true,
+                                author: { select: { id: true, username: true, avatarUrl: true } }
+                            }
+                        }
+                    }
+                }
+            },
             orderBy: { createdAt: 'desc' }
         });
     }
@@ -346,7 +331,7 @@ export class OffersService {
             return rejectedOffer;
         }
 
-        // ACCEPT counter-offer - create order with counter price
+        // ACCEPT counter-offer — only update status + stock, no Order.
         if (action === 'ACCEPT') {
             if (!offer.counterPrice) {
                 throw new BadRequestException('Counter price not found');
@@ -356,72 +341,10 @@ export class OffersService {
                 throw new BadRequestException('Product is out of stock now');
             }
 
-            // *** NEW: Ensure counterPrice is not null ***
-            const finalPrice = offer.counterPrice;
-            if (!finalPrice) {
-                throw new BadRequestException('Counter price is required');
-            }
-
-            // Get seller's bank account
-            const seller = await this.prisma.user.findUnique({
-                where: { id: offer.product.post.authorId },
-                select: {
-                    username: true,
-                    bankAccounts: { include: { bank: true } }
-                }
-            });
-
-            if (!seller || !seller.bankAccounts || seller.bankAccounts.length === 0) {
-                throw new BadRequestException('Seller has not set up bank account');
-            }
-
-            const bankAccount = seller.bankAccounts.find(b => b.isDefault) || seller.bankAccounts[0];
-
-            // Get buyer's address
-            const buyerAddresses = await this.prisma.address.findMany({
-                where: { userId: buyerId }
-            });
-
-            if (!buyerAddresses || buyerAddresses.length === 0) {
-                throw new BadRequestException('You need a shipping address');
-            }
-
-            const defaultAddress = buyerAddresses.find(a => a.isDefault) || buyerAddresses[0];
-            const shippingAddress = `${defaultAddress.addressLine1}${defaultAddress.addressLine2 ? ', ' + defaultAddress.addressLine2 : ''}, ${defaultAddress.subDistrict}, ${defaultAddress.district}, ${defaultAddress.province} ${defaultAddress.postalCode}${defaultAddress.phoneNumber ? ' | Tel: ' + defaultAddress.phoneNumber : ''}`;
-
             return this.prisma.$transaction(async (tx) => {
-                await tx.offer.update({
+                const acceptedOffer = await tx.offer.update({
                     where: { id: offerId },
                     data: { status: OfferStatus.ACCEPTED }
-                });
-
-                const paymentSnapshot = {
-                    sellerName: seller.username,
-                    bankName: bankAccount.bank.name,
-                    bankAccount: bankAccount.accountNumber,
-                    promptPay: ''
-                };
-
-                const order = await tx.order.create({
-                    data: {
-                        buyerId: buyerId,
-                        sellerId: offer.product.post.authorId,
-                        totalPrice: finalPrice, // *** Use validated counter price ***
-                        status: OrderStatus.TO_PAY,
-                        shippingAddress: shippingAddress,
-                        paymentSnapshot: paymentSnapshot as any,
-                        paymentDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-                        items: {
-                            create: {
-                                productId: offer.productId,
-                                price: finalPrice, // *** Use validated counter price ***
-                                quantity: 1
-                            }
-                        },
-                        offers: {
-                            connect: { id: offerId }
-                        }
-                    }
                 });
 
                 const updatedProduct = await tx.product.update({
@@ -437,7 +360,6 @@ export class OffersService {
                         data: { isSoldOut: true }
                     });
 
-                    // *** NEW: Reject all other pending/countered offers for this product ***
                     await tx.offer.updateMany({
                         where: {
                             productId: offer.productId,
@@ -453,11 +375,10 @@ export class OffersService {
 
                 this.eventEmitter.emit('offer.counter_accepted', {
                     sellerId: offer.product.post.authorId,
-                    offerId: offer.id,
-                    orderId: order.id
+                    offerId: offer.id
                 });
 
-                return order;
+                return acceptedOffer;
             });
         }
     }

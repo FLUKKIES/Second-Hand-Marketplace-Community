@@ -49,4 +49,10 @@ export class UploadController {
     async uploadGroupCover(@UploadedFile() file: Express.Multer.File) {
         return this.uploadService.handleUploadedFile(file, 'groups/covers');
     }
+
+    @Post('bank')
+    @UseInterceptors(FileInterceptor('file', multerOptions('banks')))
+    async uploadBankIcon(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.handleUploadedFile(file, 'banks');
+    }
 }

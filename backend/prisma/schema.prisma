@@ -226,9 +226,10 @@ model GroupMember {
 // ==========================================
 
 model Post {
-    id      String   @id @default(uuid())
-    content String?  @db.Text
-    type    PostType @default(NORMAL)
+    id           String   @id @default(uuid())
+    content      String?  @db.Text
+    type         PostType @default(NORMAL)
+    shippingCost Decimal  @default(0) @db.Decimal(10, 2)
 
     authorId String
     author   User   @relation(fields: [authorId], references: [id])
@@ -505,6 +506,7 @@ enum NotificationType {
     OFFER_RECEIVED // มีคนมาต่อราคา
     OFFER_ACCEPTED // คำขอต่อราคาได้รับการอนุมัติ
     OFFER_REJECTED // คำขอต่อราคาถูกปฏิเสธ
+    OFFER_COUNTERED // ผู้ขายเสนอราคาใหม่
 
     ORDER_CREATED // มีคำสั่งซื้อเข้ามา (สำหรับคนขาย)
     ORDER_PAID // ลูกค้าแจ้งโอนเงิน (สำหรับคนขาย)

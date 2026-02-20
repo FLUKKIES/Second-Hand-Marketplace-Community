@@ -2,8 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderFromOffersDto } from './dto/create-order-from-offers.dto';
 import { ConfirmPaymentDto, ShipOrderDto } from './dto/order-action.dto';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, OfferStatus, Prisma } from '@prisma/client';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -141,6 +142,135 @@ export class OrdersService {
             }
 
             return createdOrders;
+        });
+    }
+
+    // 1b. Create Order from Accepted Offers (Multi-Offer Checkout)
+    async createOrderFromOffers(buyerId: string, dto: CreateOrderFromOffersDto) {
+        if (!dto.offerIds || dto.offerIds.length === 0) {
+            throw new BadRequestException('Please select at least one offer');
+        }
+
+        // 1. Fetch all offers with relations
+        const offers = await this.prisma.offer.findMany({
+            where: {
+                id: { in: dto.offerIds },
+                buyerId: buyerId,
+                status: OfferStatus.ACCEPTED,
+                orderId: null,
+            },
+            include: {
+                product: {
+                    include: {
+                        post: {
+                            select: { id: true, authorId: true, shippingCost: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Validate all offers found
+        if (offers.length !== dto.offerIds.length) {
+            throw new BadRequestException('Some offers are invalid, already checked out, or not found');
+        }
+
+        // 3. Validate all offers are from the same seller
+        const sellerIds = new Set(offers.map(o => o.product.post.authorId));
+        if (sellerIds.size > 1) {
+            throw new BadRequestException('All selected offers must be from the same seller');
+        }
+        const sellerId = offers[0].product.post.authorId;
+
+        // 4. Get buyer's default shipping address
+        const buyerAddresses = await this.prisma.address.findMany({
+            where: { userId: buyerId }
+        });
+
+        if (!buyerAddresses || buyerAddresses.length === 0) {
+            throw new BadRequestException('Please add a shipping address before checkout');
+        }
+
+        const defaultAddress = buyerAddresses.find(a => a.isDefault) || buyerAddresses[0];
+        const shippingAddress = `${defaultAddress.addressLine1}${defaultAddress.addressLine2 ? ', ' + defaultAddress.addressLine2 : ''}, ${defaultAddress.subDistrict}, ${defaultAddress.district}, ${defaultAddress.province} ${defaultAddress.postalCode}${defaultAddress.phoneNumber ? ' | Tel: ' + defaultAddress.phoneNumber : ''}`;
+
+        // 5. Get seller bank account for payment snapshot
+        const seller = await this.prisma.user.findUnique({
+            where: { id: sellerId },
+            select: {
+                username: true,
+                bankAccounts: { include: { bank: true } }
+            }
+        });
+
+        if (!seller) throw new NotFoundException('Seller not found');
+
+        const bankAccount = seller.bankAccounts.find(b => b.isDefault) || seller.bankAccounts[0];
+
+        if (!bankAccount) {
+            throw new BadRequestException('Seller has no bank account set up');
+        }
+
+        const paymentSnapshot = {
+            sellerName: seller.username,
+            bankName: bankAccount.bank.name,
+            bankAccount: bankAccount.accountNumber,
+            promptPay: ''
+        };
+
+        // 6. Calculate total price (sum of final prices + max shipping cost)
+        let itemsTotal = 0;
+        let maxShippingCost = 0;
+
+        for (const offer of offers) {
+            const finalPrice = offer.counterPrice ? Number(offer.counterPrice) : Number(offer.offeredPrice);
+            itemsTotal += finalPrice;
+
+            const shippingCost = Number(offer.product.post.shippingCost) || 0;
+            if (shippingCost > maxShippingCost) {
+                maxShippingCost = shippingCost;
+            }
+        }
+
+        const totalPrice = itemsTotal + maxShippingCost;
+
+        // 7. Create Order in a transaction
+        return this.prisma.$transaction(async (tx) => {
+            const paymentDueAt = new Date();
+            paymentDueAt.setHours(paymentDueAt.getHours() + 24);
+
+            const orderItemsData: Prisma.OrderItemUncheckedCreateWithoutOrderInput[] = offers.map(offer => ({
+                productId: offer.productId,
+                price: offer.counterPrice ? offer.counterPrice : offer.offeredPrice,
+                quantity: 1,
+            }));
+
+            const order = await tx.order.create({
+                data: {
+                    buyerId: buyerId,
+                    sellerId: sellerId,
+                    totalPrice: totalPrice,
+                    status: OrderStatus.TO_PAY,
+                    shippingAddress: shippingAddress,
+                    paymentSnapshot: paymentSnapshot as any,
+                    paymentDueAt: paymentDueAt,
+                    items: { create: orderItemsData },
+                    offers: {
+                        connect: dto.offerIds.map(id => ({ id }))
+                    }
+                },
+                include: {
+                    items: { include: { product: true } },
+                    offers: true,
+                }
+            });
+
+            this.eventEmitter.emit('order.created', {
+                sellerId,
+                orderId: order.id
+            });
+
+            return order;
         });
     }
 
@@ -284,7 +414,7 @@ export class OrdersService {
         return this.prisma.order.findMany({
             where: { buyerId: userId },
             include: {
-                seller: { select: { username: true, avatarUrl: true } },
+                seller: { select: { id: true, username: true, avatarUrl: true } },
                 items: { include: { product: true } },
                 review: true
             },
@@ -297,7 +427,7 @@ export class OrdersService {
         return this.prisma.order.findMany({
             where: { sellerId: userId },
             include: {
-                buyer: { select: { username: true, avatarUrl: true } },
+                buyer: { select: { id: true, username: true, avatarUrl: true } },
                 items: { include: { product: true } },
                 review: true
             },

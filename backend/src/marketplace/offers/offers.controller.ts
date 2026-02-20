@@ -51,4 +51,9 @@ export class OffersController {
     getMyOffers(@GetUser('userId') userId: string) {
         return this.offersService.getMyOffers(userId);
     }
+
+    @Get('accepted')
+    getAcceptedOffers(@GetUser('userId') userId: string) {
+        return this.offersService.getAcceptedOffers(userId);
+    }
 }

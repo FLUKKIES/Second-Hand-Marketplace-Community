@@ -124,6 +124,28 @@ export class GroupsService {
         });
     }
 
+    async getMembers(groupId: string) {
+        const group = await this.prisma.group.findUnique({ where: { id: groupId } });
+        if (!group) throw new NotFoundException('Group not found');
+
+        return this.prisma.groupMember.findMany({
+            where: { groupId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        avatarUrl: true,
+                    },
+                },
+            },
+            orderBy: [
+                { role: 'asc' },
+                { joinedAt: 'asc' },
+            ],
+        });
+    }
+
     async update(id: string, dto: UpdateGroupDto) {
         const group = await this.prisma.group.findUnique({ where: { id } });
         if (!group) throw new NotFoundException('Group not found');

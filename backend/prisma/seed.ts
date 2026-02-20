@@ -56,7 +56,7 @@ async function main() {
     // 1. Users
     const [
         admin,
-        alice, bob, charlie, diana
+        // alice, bob, charlie, diana
     ] = await Promise.all([
         prisma.user.upsert({
             where: { email: 'admin@admin.com' },
@@ -74,248 +74,110 @@ async function main() {
                 acceptedTermsAt: new Date(), // Admin always accepted
             },
         }),
-        prisma.user.upsert({
-            where: { email: 'alice@smarket.com' },
-            update: {
-                username: 'alice',
-                firstName: 'Alice',
-                lastName: 'Seller',
-                bio: 'Seller focusing on second-hand gadgets',
-                phoneNumber: '080-000-0001',
-            },
-            create: {
-                email: 'alice@smarket.com',
-                username: 'alice',
-                firstName: 'Alice',
-                lastName: 'Seller',
-                role: Role.USER,
-                bio: 'Seller focusing on second-hand gadgets',
-                phoneNumber: '080-000-0001',
-                addresses: {
-                    create: {
-                        label: 'Home',
-                        addressLine1: '123/45 Condo',
-                        subDistrict: 'Khlong Toei',
-                        district: 'Khlong Toei',
-                        province: 'Bangkok',
-                        postalCode: '10110',
-                        isDefault: true
-                    }
-                },
-                bankAccounts: {
-                    create: {
-                        bankId: kbank.id,
-                        accountName: 'Alice Seller',
-                        accountNumber: '123-456-7890',
-                        isDefault: true
-                    }
-                }
-            },
-        }),
-        prisma.user.upsert({
-            where: { email: 'bob@smarket.com' },
-            update: {
-                username: 'bob',
-                firstName: 'Bob',
-                lastName: 'Buyer',
-                bio: 'Casual buyer, loves bargains',
-                phoneNumber: '081-000-0002',
-            },
-            create: {
-                email: 'bob@smarket.com',
-                username: 'bob',
-                firstName: 'Bob',
-                lastName: 'Buyer',
-                role: Role.USER,
-                bio: 'Casual buyer, loves bargains',
-                phoneNumber: '081-000-0002',
-                addresses: {
-                    create: {
-                        label: 'Home',
-                        addressLine1: '999/99 Village',
-                        subDistrict: 'Samsen Nai',
-                        district: 'Phaya Thai',
-                        province: 'Bangkok',
-                        postalCode: '10400',
-                        isDefault: true
-                    }
-                }
-            },
-        }),
-        prisma.user.upsert({
-            where: { email: 'charlie@smarket.com' },
-            update: {
-                username: 'charlie',
-                firstName: 'Charlie',
-                lastName: 'Camera',
-                role: Role.USER,
-                bio: 'Professional photographer selling gears',
-                phoneNumber: '082-000-0003',
-            },
-            create: {
-                email: 'charlie@smarket.com',
-                username: 'charlie',
-                firstName: 'Charlie',
-                lastName: 'Camera',
-                role: Role.USER,
-                bio: 'Professional photographer selling gears',
-                phoneNumber: '082-000-0003',
-                addresses: {
-                    create: {
-                        label: 'Studio',
-                        addressLine1: '44/55 Photo Studio',
-                        subDistrict: 'Silom',
-                        district: 'Bang Rak',
-                        province: 'Bangkok',
-                        postalCode: '10500',
-                        isDefault: true
-                    }
-                },
-                bankAccounts: {
-                    create: {
-                        bankId: kbank.id,
-                        accountName: 'Charlie Camera',
-                        accountNumber: '111-222-3333',
-                        isDefault: true
-                    }
-                }
-            },
-        }),
-        prisma.user.upsert({
-            where: { email: 'diana@smarket.com' },
-            update: {
-                username: 'diana',
-                firstName: 'Diana',
-                lastName: 'Decor',
-                role: Role.USER,
-                bio: 'Interior designer looking for props',
-                phoneNumber: '083-000-0004',
-            },
-            create: {
-                email: 'diana@smarket.com',
-                username: 'diana',
-                firstName: 'Diana',
-                lastName: 'Decor',
-                role: Role.USER,
-                bio: 'Interior designer looking for props',
-                phoneNumber: '083-000-0004',
-                addresses: {
-                    create: {
-                        label: 'Office',
-                        addressLine1: '88/99 Design Hub',
-                        subDistrict: 'Thong Lo',
-                        district: 'Watthana',
-                        province: 'Bangkok',
-                        postalCode: '10110',
-                        isDefault: true
-                    }
-                }
-            },
-        }),
     ])
 
     console.log('✅ Users ready')
     console.log('User Logins:')
     console.log('Admin: admin@admin.com / admin123')
 
-    // 2. Categories
-    const electronics = await prisma.category.upsert({
-        where: { slug: 'electronics' },
-        update: { name: 'Electronics' },
-        create: {
-            name: 'Electronics',
-            slug: 'electronics',
-            imageUrl: 'https://placehold.co/120x120?text=Electronics',
-        },
-    })
+    // // 2. Categories
+    // const electronics = await prisma.category.upsert({
+    //     where: { slug: 'electronics' },
+    //     update: { name: 'Electronics' },
+    //     create: {
+    //         name: 'Electronics',
+    //         slug: 'electronics',
+    //         imageUrl: 'https://placehold.co/120x120?text=Electronics',
+    //     },
+    // })
 
-    const fashion = await prisma.category.upsert({
-        where: { slug: 'fashion' },
-        update: { name: 'Fashion' },
-        create: {
-            name: 'Fashion',
-            slug: 'fashion',
-            imageUrl: 'https://placehold.co/120x120?text=Fashion',
-        },
-    })
+    // const fashion = await prisma.category.upsert({
+    //     where: { slug: 'fashion' },
+    //     update: { name: 'Fashion' },
+    //     create: {
+    //         name: 'Fashion',
+    //         slug: 'fashion',
+    //         imageUrl: 'https://placehold.co/120x120?text=Fashion',
+    //     },
+    // })
 
-    const homeLiving = await prisma.category.upsert({
-        where: { slug: 'home-living' },
-        update: { name: 'Home & Living' },
-        create: {
-            name: 'Home & Living',
-            slug: 'home-living',
-            imageUrl: 'https://placehold.co/120x120?text=Home',
-        },
-    })
+    // const homeLiving = await prisma.category.upsert({
+    //     where: { slug: 'home-living' },
+    //     update: { name: 'Home & Living' },
+    //     create: {
+    //         name: 'Home & Living',
+    //         slug: 'home-living',
+    //         imageUrl: 'https://placehold.co/120x120?text=Home',
+    //     },
+    // })
 
-    const mobilePhones = await prisma.category.upsert({
-        where: { slug: 'mobile-phones' },
-        update: { name: 'Mobile Phones' },
-        create: {
-            name: 'Mobile Phones',
-            slug: slugify('Mobile Phones', { lower: true }),
-            imageUrl: 'https://placehold.co/120x120?text=Phones',
-        },
-    })
+    // const mobilePhones = await prisma.category.upsert({
+    //     where: { slug: 'mobile-phones' },
+    //     update: { name: 'Mobile Phones' },
+    //     create: {
+    //         name: 'Mobile Phones',
+    //         slug: slugify('Mobile Phones', { lower: true }),
+    //         imageUrl: 'https://placehold.co/120x120?text=Phones',
+    //     },
+    // })
 
-    console.log('✅ Categories ready')
+    // console.log('✅ Categories ready')
 
-    // 3. Groups (New)
-    const generalGroup = await prisma.group.create({
-        data: {
-            name: 'General Discussion',
-            categoryId: electronics.id,
-            description: 'Discuss anything related to electronics',
-            members: {
-                create: [
-                    { userId: alice.id, role: 'ADMIN' },
-                    { userId: bob.id, role: 'MEMBER' }
-                ]
-            }
-        }
-    })
+    // // 3. Groups (New)
+    // const generalGroup = await prisma.group.create({
+    //     data: {
+    //         name: 'General Discussion',
+    //         categoryId: electronics.id,
+    //         description: 'Discuss anything related to electronics',
+    //         members: {
+    //             create: [
+    //                 { userId: alice.id, role: 'ADMIN' },
+    //                 { userId: bob.id, role: 'MEMBER' }
+    //             ]
+    //         }
+    //     }
+    // })
 
-    const mobileGroup = await prisma.group.create({
-        data: {
-            name: 'Mobile Lovers',
-            categoryId: mobilePhones.id,
-            description: 'Buy and sell mobile phones',
-            members: {
-                create: [
-                    { userId: alice.id, role: 'ADMIN' },
-                    { userId: charlie.id, role: 'MEMBER' }
-                ]
-            }
-        }
-    })
+    // const mobileGroup = await prisma.group.create({
+    //     data: {
+    //         name: 'Mobile Lovers',
+    //         categoryId: mobilePhones.id,
+    //         description: 'Buy and sell mobile phones',
+    //         members: {
+    //             create: [
+    //                 { userId: alice.id, role: 'ADMIN' },
+    //                 { userId: charlie.id, role: 'MEMBER' }
+    //             ]
+    //         }
+    //     }
+    // })
 
-    const fashionGroup = await prisma.group.create({
-        data: {
-            name: 'Streetwear Market',
-            categoryId: fashion.id,
-            description: 'Buy sell trade streetwear',
-            members: {
-                create: [
-                    { userId: charlie.id, role: 'ADMIN' },
-                    { userId: diana.id, role: 'MEMBER' }
-                ]
-            }
-        }
-    })
+    // const fashionGroup = await prisma.group.create({
+    //     data: {
+    //         name: 'Streetwear Market',
+    //         categoryId: fashion.id,
+    //         description: 'Buy sell trade streetwear',
+    //         members: {
+    //             create: [
+    //                 { userId: charlie.id, role: 'ADMIN' },
+    //                 { userId: diana.id, role: 'MEMBER' }
+    //             ]
+    //         }
+    //     }
+    // })
 
-    const homeGroup = await prisma.group.create({
-        data: {
-            name: 'Minimalist Home',
-            categoryId: homeLiving.id,
-            description: 'Furniture and Decor',
-            members: {
-                create: [
-                    { userId: diana.id, role: 'ADMIN' }
-                ]
-            }
-        }
-    })
+    // const homeGroup = await prisma.group.create({
+    //     data: {
+    //         name: 'Minimalist Home',
+    //         categoryId: homeLiving.id,
+    //         description: 'Furniture and Decor',
+    //         members: {
+    //             create: [
+    //                 { userId: diana.id, role: 'ADMIN' }
+    //             ]
+    //         }
+    //     }
+    // })
 
     // console.log('✅ Groups ready')
 

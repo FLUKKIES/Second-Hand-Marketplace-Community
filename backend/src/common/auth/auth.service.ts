@@ -19,6 +19,29 @@ export class AuthService {
         // Hash Password
         const hash = await argon2.hash(dto.password);
 
+        // Check if user exists
+        const existingUser = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: dto.email },
+                    { username: dto.username },
+                    { phoneNumber: dto.phoneNumber },
+                ],
+            },
+        });
+
+        if (existingUser) {
+            if (existingUser.email === dto.email) {
+                throw new ForbiddenException('Email already in use');
+            }
+            if (existingUser.username === dto.username) {
+                throw new ForbiddenException('Username already in use');
+            }
+            if (existingUser.phoneNumber === dto.phoneNumber) {
+                throw new ForbiddenException('Phone number already in use');
+            }
+        }
+
         try {
             const user = await this.prisma.user.create({
                 data: {
@@ -88,7 +111,7 @@ export class AuthService {
         });
 
         if (!user) {
-            // สร้าง Username สุ่มจากชื่อ หรือใช้ email prefix
+            // สร้าง Username สุ่มจากชื่อ ห  รือใช้ email prefix
             const randomSuffix = Math.floor(1000 + Math.random() * 9000);
             const generatedUsername = `${req.user.firstName}${randomSuffix}`.toLowerCase();
 

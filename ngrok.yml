@@ -1,9 +1,0 @@
-version: "2"
-authtoken: 37cL3fBh4NU3Vr9TdHKsxPhQcr0_6WD9V3QqRMYHL2qhLhGhQ
-tunnels:
-  frontend:
-    addr: host.docker.internal:3000
-    proto: http
-  backend:
-    addr: host.docker.internal:3001
-    proto: http

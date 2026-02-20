@@ -12,7 +12,7 @@ export const multerOptions = (folder: string) => {
             destination: (req, file, cb) => {
                 const uploadDir = `./public/uploads/${folder}`
                 if (!existsSync(uploadDir)) {
-                    mkdirSync(uploadDir, { recursive : true});
+                    mkdirSync(uploadDir, { recursive: true });
                 }
 
                 cb(null, uploadDir);
@@ -39,7 +39,7 @@ export const multerOptions = (folder: string) => {
         },
 
         limits: {
-            fileSize: 10 * 1024 * 1024,
+            fileSize: 50 * 1024 * 1024,
         },
     };
 };

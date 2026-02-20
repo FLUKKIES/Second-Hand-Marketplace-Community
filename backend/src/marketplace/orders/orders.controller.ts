@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Get, Patch, Param } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderFromOffersDto } from './dto/create-order-from-offers.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/auth/decorator/get-user.decorator';
 import { ConfirmPaymentDto, ShipOrderDto } from './dto/order-action.dto';
@@ -13,6 +14,11 @@ export class OrdersController {
     @Post('create')
     createOrder(@GetUser('userId') userId: string, @Body() dto: CreateOrderDto) {
         return this.ordersService.createOrder(userId, dto);
+    }
+
+    @Post('create-from-offers')
+    createOrderFromOffers(@GetUser('userId') userId: string, @Body() dto: CreateOrderFromOffersDto) {
+        return this.ordersService.createOrderFromOffers(userId, dto);
     }
 
     @Get('buying')

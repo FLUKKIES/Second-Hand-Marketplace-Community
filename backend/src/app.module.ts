@@ -9,6 +9,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { SocialModule } from './social/social.module';
 import { ReportsModule } from './reports/reports.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
         MarketplaceModule,
         SocialModule,
         ReportsModule,
+        AdminModule,
         ScheduleModule.forRoot(),
     ],
 })

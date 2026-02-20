@@ -39,6 +39,11 @@ export class GroupsController {
         return this.groupsService.findOne(id);
     }
 
+    @Get(':id/members')
+    getMembers(@Param('id') groupId: string) {
+        return this.groupsService.getMembers(groupId);
+    }
+
     @Post(':id/join')
     @UseGuards(AuthGuard('jwt'))
     join(@Param('id') groupId: string, @GetUser('userId') userId: string) {

@@ -45,6 +45,12 @@ export class CreatePostDto {
     @IsString({ each: true })
     imageUrls?: string[]; // Array ของ URL รูปภาพ
 
+    // --- ค่าจัดส่ง (Selling Post) ---
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    shippingCost?: number;
+
     // --- กรณี Selling Post (สินค้าได้หลายชิ้น) ---
     @IsOptional()
     @ValidateNested({ each: true })

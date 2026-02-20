@@ -98,7 +98,7 @@ export const api = {
     // Specialized Methods
     uploadImage: async (
         file: File,
-        type: 'post' | 'product' | 'avatar' | 'slip' | 'category' | 'group/profile' | 'group/cover'
+        type: 'post' | 'product' | 'avatar' | 'slip' | 'category' | 'group/profile' | 'group/cover' | 'bank'
     ): Promise<string> => {
         const formData = new FormData();
         formData.append('file', file);

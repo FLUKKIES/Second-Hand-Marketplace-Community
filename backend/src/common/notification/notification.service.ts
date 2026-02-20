@@ -143,13 +143,13 @@ export class NotificationService {
     }
 
     @OnEvent('offer.accepted')
-    async handleOfferAccepted(payload: { buyerId: string, offerId: string, orderId: string }) {
+    async handleOfferAccepted(payload: { buyerId: string, offerId: string }) {
         await this.createNotification(
             payload.buyerId,
             NotificationType.OFFER_ACCEPTED,
             'Offer Accepted',
-            'Your offer has been accepted! An order has been created.',
-            { offerId: payload.offerId, orderId: payload.orderId }
+            'Your offer has been accepted! Go to My Offers to checkout.',
+            { offerId: payload.offerId }
         );
     }
 
@@ -160,6 +160,50 @@ export class NotificationService {
             NotificationType.OFFER_REJECTED,
             'Offer Rejected',
             'Your offer was rejected by the seller.',
+            { offerId: payload.offerId }
+        );
+    }
+
+    @OnEvent('offer.countered')
+    async handleOfferCountered(payload: { buyerId: string, offerId: string, counterPrice: number }) {
+        await this.createNotification(
+            payload.buyerId,
+            NotificationType.OFFER_COUNTERED,
+            'Counter Offer Received',
+            `Seller made a counter offer of ฿${Number(payload.counterPrice).toLocaleString()}. Check your offers to respond.`,
+            { offerId: payload.offerId }
+        );
+    }
+
+    @OnEvent('offer.counter_accepted')
+    async handleCounterAccepted(payload: { sellerId: string, offerId: string }) {
+        await this.createNotification(
+            payload.sellerId,
+            NotificationType.OFFER_ACCEPTED,
+            'Counter Offer Accepted',
+            'Buyer accepted your counter offer.',
+            { offerId: payload.offerId }
+        );
+    }
+
+    @OnEvent('offer.counter_rejected')
+    async handleCounterRejected(payload: { sellerId: string, offerId: string }) {
+        await this.createNotification(
+            payload.sellerId,
+            NotificationType.OFFER_REJECTED,
+            'Counter Offer Rejected',
+            'Buyer rejected your counter offer.',
+            { offerId: payload.offerId }
+        );
+    }
+
+    @OnEvent('offer.cancelled')
+    async handleOfferCancelled(payload: { sellerId: string, offerId: string }) {
+        await this.createNotification(
+            payload.sellerId,
+            NotificationType.OFFER_REJECTED,
+            'Offer Cancelled',
+            'A buyer has cancelled their offer.',
             { offerId: payload.offerId }
         );
     }

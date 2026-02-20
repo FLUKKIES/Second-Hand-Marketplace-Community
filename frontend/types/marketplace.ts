@@ -56,6 +56,7 @@ export interface Offer {
     counterNote?: string;
     expiresAt: string;
     createdAt: string;
+    orderId?: string | null;
     product: {
         id: string;
         postId: string;
@@ -63,6 +64,16 @@ export interface Offer {
         price: string;
         description: string;
         imageUrl: string | null;
+        post?: {
+            id: string;
+            shippingCost: string;
+            authorId: string;
+            author: {
+                id: string;
+                username: string;
+                avatarUrl: string | null;
+            };
+        };
     };
     buyer: {
         id: string;
