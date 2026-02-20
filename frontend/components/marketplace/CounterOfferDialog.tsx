@@ -21,6 +21,7 @@ interface CounterOfferDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   offer: Offer;
+  role: "buyer" | "seller";
   onSuccess?: () => void;
 }
 
@@ -28,12 +29,15 @@ export function CounterOfferDialog({
   open,
   onOpenChange,
   offer,
+  role,
   onSuccess,
 }: CounterOfferDialogProps) {
-  const [counterPrice, setCounterPrice] = useState(
-    offer.counterPrice || offer.offeredPrice
-  );
-  const [counterNote, setCounterNote] = useState("");
+  const isBuyer = role === "buyer";
+
+  // Default price: last counter price if exists, otherwise original offered price
+  const defaultPrice = offer.counterPrice || offer.offeredPrice;
+  const [counterPrice, setCounterPrice] = useState(defaultPrice);
+  const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -51,10 +55,15 @@ export function CounterOfferDialog({
   const executeSubmit = async () => {
     try {
       setIsLoading(true);
-      await api.patch(`/offers/${offer.id}/respond`, {
+
+      const endpoint = isBuyer
+        ? `/offers/${offer.id}/respond-counter`
+        : `/offers/${offer.id}/respond`;
+
+      await api.patch(endpoint, {
         action: "COUNTER",
         counterPrice: parseFloat(counterPrice),
-        sellerNote: counterNote || undefined,
+        note: note || undefined,
       });
 
       toast.success("Counter offer sent!");
@@ -73,9 +82,13 @@ export function CounterOfferDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Counter Offer</DialogTitle>
+            <DialogTitle>
+              {isBuyer ? "Counter Back" : "Counter Offer"}
+            </DialogTitle>
             <DialogDescription>
-              Propose a different price to the buyer for "{offer.product.name}"
+              {isBuyer
+                ? `Propose a different price back to the seller for "${offer.product.name}"`
+                : `Propose a different price to the buyer for "${offer.product.name}"`}
             </DialogDescription>
           </DialogHeader>
 
@@ -88,11 +101,22 @@ export function CounterOfferDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Buyer's Offer</Label>
+              <Label>{isBuyer ? "Your offered price" : "Buyer's Offer"}</Label>
               <div className="text-sm text-primary font-medium">
                 ฿{parseInt(offer.offeredPrice).toLocaleString()}
               </div>
             </div>
+
+            {offer.counterPrice && (
+              <div className="space-y-2">
+                <Label>
+                  Latest Counter ({offer.lastCounteredBy === "BUYER" ? "Buyer" : "Seller"})
+                </Label>
+                <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                  ฿{parseInt(offer.counterPrice).toLocaleString()}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="counter-price">Your Counter Price *</Label>
@@ -118,14 +142,18 @@ export function CounterOfferDialog({
               <Label htmlFor="counter-note">Note (Optional)</Label>
               <Textarea
                 id="counter-note"
-                value={counterNote}
-                onChange={(e) => setCounterNote(e.target.value)}
-                placeholder="Add a message to the buyer..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={
+                  isBuyer
+                    ? "Add a message to the seller..."
+                    : "Add a message to the buyer..."
+                }
                 rows={3}
                 maxLength={500}
               />
               <div className="text-xs text-muted-foreground text-right">
-                {counterNote.length}/500
+                {note.length}/500
               </div>
             </div>
 
@@ -139,7 +167,7 @@ export function CounterOfferDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Sending..." : "Send Counter Offer"}
+                {isLoading ? "Sending..." : "Send Counter"}
               </Button>
             </DialogFooter>
           </form>

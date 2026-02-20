@@ -32,14 +32,14 @@ export class OffersController {
         return this.offersService.respond(userId, offerId, dto);
     }
 
-    // *** NEW: Buyer respond to counter-offer ***
+    // Buyer respond to counter-offer (ACCEPT | REJECT | COUNTER)
     @Patch(':id/respond-counter')
     respondToCounter(
         @Param('id') offerId: string,
         @GetUser('userId') userId: string,
-        @Body() body: { action: 'ACCEPT' | 'REJECT' }
+        @Body() dto: RespondOfferDto
     ) {
-        return this.offersService.respondToCounter(userId, offerId, body.action);
+        return this.offersService.respondToCounter(userId, offerId, dto);
     }
 
     @Get('incoming')

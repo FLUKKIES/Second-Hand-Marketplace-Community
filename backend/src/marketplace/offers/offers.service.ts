@@ -3,7 +3,7 @@ import { PrismaService } from 'src/common/database/prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { OfferAction, RespondOfferDto } from './dto/respond-offer.dto';
-import { OfferStatus, OrderStatus } from '@prisma/client';
+import { CounteredBy, OfferStatus, OrderStatus } from '@prisma/client';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -14,9 +14,8 @@ export class OffersService {
         private eventEmitter: EventEmitter2
     ) { }
 
-    // 1. Make Offer
+    // 1. Make Offer (Buyer)
     async create(buyerId: string, dto: CreateOfferDto) {
-        // *** NEW: Validate buyer has shipping address ***
         const buyerAddresses = await this.prisma.address.findMany({
             where: { userId: buyerId }
         });
@@ -25,7 +24,6 @@ export class OffersService {
             throw new BadRequestException('Please add a shipping address before making an offer');
         }
 
-        // ... (validation checks) ...
         const product = await this.prisma.product.findUnique({
             where: { id: dto.productId },
             include: { post: true }
@@ -45,7 +43,6 @@ export class OffersService {
 
         if (existingOffer) throw new BadRequestException('You already have a pending offer for this product');
 
-        // *** NEW: Set expiration date (3 days from now) ***
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 3);
 
@@ -55,13 +52,12 @@ export class OffersService {
                 productId: dto.productId,
                 offeredPrice: dto.offeredPrice,
                 buyerNote: dto.buyerNote,
-                expiresAt, // *** NEW: Add expiration ***
+                expiresAt,
                 status: OfferStatus.PENDING
             },
             include: { product: true }
         });
 
-        // EMIT EVENT: Offer Received (Notify Seller)
         this.eventEmitter.emit('offer.received', {
             sellerId: product.post.authorId,
             offerId: offer.id
@@ -88,7 +84,6 @@ export class OffersService {
             data: { status: OfferStatus.CANCELLED }
         });
 
-        // EMIT EVENT: Offer Cancelled (Notify Seller)
         this.eventEmitter.emit('offer.cancelled', {
             sellerId: offer.product.post.authorId,
             offerId: offer.id
@@ -97,7 +92,7 @@ export class OffersService {
         return cancelledOffer;
     }
 
-    // 2. Respond Offer (Accept/Reject/Counter)
+    // 2. Respond Offer (Seller: ACCEPT | REJECT | COUNTER)
     async respond(sellerId: string, offerId: string, dto: RespondOfferDto) {
         const offer = await this.prisma.offer.findUnique({
             where: { id: offerId },
@@ -106,11 +101,16 @@ export class OffersService {
 
         if (!offer) throw new NotFoundException('Offer not found');
         if (offer.product.post.authorId !== sellerId) throw new ForbiddenException('Not owner of this product');
-        if (offer.status !== OfferStatus.PENDING && offer.status !== OfferStatus.COUNTER_OFFERED) {
-            throw new BadRequestException('Offer is already processed');
+
+        // Offer must be PENDING, or COUNTER_OFFERED and it's the seller's turn
+        const isSellerTurn =
+            offer.status === OfferStatus.PENDING ||
+            (offer.status === OfferStatus.COUNTER_OFFERED && offer.lastCounteredBy === CounteredBy.BUYER);
+
+        if (!isSellerTurn) {
+            throw new BadRequestException('It is not your turn to respond');
         }
 
-        // *** NEW: Check expiration ***
         if (offer.expiresAt && new Date() > offer.expiresAt) {
             await this.prisma.offer.update({
                 where: { id: offerId },
@@ -125,11 +125,10 @@ export class OffersService {
                 where: { id: offerId },
                 data: {
                     status: OfferStatus.REJECTED,
-                    sellerNote: dto.sellerNote
+                    sellerNote: dto.note
                 }
             });
 
-            // EMIT EVENT: Offer Rejected (Notify Buyer)
             this.eventEmitter.emit('offer.rejected', {
                 buyerId: offer.buyerId,
                 offerId: offer.id
@@ -138,7 +137,7 @@ export class OffersService {
             return rejectedOffer;
         }
 
-        // *** NEW: COUNTER-OFFER ***
+        // COUNTER
         if (dto.action === OfferAction.COUNTER) {
             if (!dto.counterPrice) {
                 throw new BadRequestException('Counter price is required');
@@ -149,12 +148,12 @@ export class OffersService {
                 data: {
                     status: OfferStatus.COUNTER_OFFERED,
                     counterPrice: dto.counterPrice,
-                    counterNote: dto.sellerNote,
-                    counterCount: { increment: 1 }
+                    negotiationNote: dto.note,
+                    counterCount: { increment: 1 },
+                    lastCounteredBy: CounteredBy.SELLER,
                 }
             });
 
-            // EMIT EVENT: Offer Countered (Notify Buyer)
             this.eventEmitter.emit('offer.countered', {
                 buyerId: offer.buyerId,
                 offerId: offer.id,
@@ -164,12 +163,10 @@ export class OffersService {
             return counteredOffer;
         }
 
-        // ACCEPT — only update offer status + stock. Order created later via checkout.
-
+        // ACCEPT
         if (dto.action === OfferAction.ACCEPT) {
             if (offer.product.stock <= 0) throw new BadRequestException('Product is out of stock now');
 
-            // *** Validate seller has bank account (still needed for future order) ***
             const seller = await this.prisma.user.findUnique({
                 where: { id: sellerId },
                 select: {
@@ -183,31 +180,25 @@ export class OffersService {
             }
 
             return this.prisma.$transaction(async (tx) => {
-                // 1. Update Offer status
                 const acceptedOffer = await tx.offer.update({
                     where: { id: offerId },
                     data: {
                         status: OfferStatus.ACCEPTED,
-                        sellerNote: dto.sellerNote
+                        sellerNote: dto.note
                     }
                 });
 
-                // 2. Cut Stock
                 const updatedProduct = await tx.product.update({
                     where: { id: offer.productId },
-                    data: {
-                        stock: { decrement: 1 },
-                    }
+                    data: { stock: { decrement: 1 } }
                 });
 
-                // Check if sold out
                 if (updatedProduct.stock <= 0) {
                     await tx.product.update({
                         where: { id: offer.productId },
                         data: { isSoldOut: true }
                     });
 
-                    // Reject all other pending/countered offers for this product
                     await tx.offer.updateMany({
                         where: {
                             productId: offer.productId,
@@ -216,12 +207,11 @@ export class OffersService {
                         },
                         data: {
                             status: OfferStatus.REJECTED,
-                            sellerNote: "Item Sold Out"
+                            sellerNote: 'Item Sold Out'
                         }
                     });
                 }
 
-                // EMIT EVENT: Offer Accepted (Notify Buyer to checkout)
                 this.eventEmitter.emit('offer.accepted', {
                     buyerId: offer.buyerId,
                     offerId: offer.id
@@ -232,7 +222,126 @@ export class OffersService {
         }
     }
 
-    // 3. Get Incoming offers (Seller)
+    // 3. Respond to Counter (Buyer: ACCEPT | REJECT | COUNTER)
+    async respondToCounter(buyerId: string, offerId: string, dto: RespondOfferDto) {
+        const offer = await this.prisma.offer.findUnique({
+            where: { id: offerId },
+            include: { product: { include: { post: true } } }
+        });
+
+        if (!offer) throw new NotFoundException('Offer not found');
+        if (offer.buyerId !== buyerId) throw new ForbiddenException('Not your offer');
+
+        // Must be COUNTER_OFFERED and it's the buyer's turn (seller countered last)
+        if (offer.status !== OfferStatus.COUNTER_OFFERED) {
+            throw new BadRequestException('This offer has not been countered');
+        }
+        if (offer.lastCounteredBy !== CounteredBy.SELLER) {
+            throw new BadRequestException('It is not your turn to respond');
+        }
+
+        if (offer.expiresAt && new Date() > offer.expiresAt) {
+            await this.prisma.offer.update({
+                where: { id: offerId },
+                data: { status: OfferStatus.EXPIRED }
+            });
+            throw new BadRequestException('This offer has expired');
+        }
+
+        // REJECT
+        if (dto.action === OfferAction.REJECT) {
+            const rejectedOffer = await this.prisma.offer.update({
+                where: { id: offerId },
+                data: { status: OfferStatus.REJECTED }
+            });
+
+            this.eventEmitter.emit('offer.counter_rejected', {
+                sellerId: offer.product.post.authorId,
+                offerId: offer.id
+            });
+
+            return rejectedOffer;
+        }
+
+        // COUNTER (Buyer counter-counters back)
+        if (dto.action === OfferAction.COUNTER) {
+            if (!dto.counterPrice) {
+                throw new BadRequestException('Counter price is required');
+            }
+
+            const counteredOffer = await this.prisma.offer.update({
+                where: { id: offerId },
+                data: {
+                    status: OfferStatus.COUNTER_OFFERED,
+                    counterPrice: dto.counterPrice,
+                    negotiationNote: dto.note,
+                    counterCount: { increment: 1 },
+                    lastCounteredBy: CounteredBy.BUYER,
+                }
+            });
+
+            // Notify seller that buyer countered back
+            this.eventEmitter.emit('offer.countered', {
+                buyerId: offer.buyerId,
+                offerId: offer.id,
+                counterPrice: dto.counterPrice,
+                // We notify the SELLER here, so reuse the event but service handles direction
+                sellerId: offer.product.post.authorId,
+            });
+
+            return counteredOffer;
+        }
+
+        // ACCEPT counter-offer
+        if (dto.action === OfferAction.ACCEPT) {
+            if (!offer.counterPrice) {
+                throw new BadRequestException('Counter price not found');
+            }
+            if (offer.product.stock <= 0) {
+                throw new BadRequestException('Product is out of stock now');
+            }
+
+            return this.prisma.$transaction(async (tx) => {
+                const acceptedOffer = await tx.offer.update({
+                    where: { id: offerId },
+                    data: { status: OfferStatus.ACCEPTED }
+                });
+
+                const updatedProduct = await tx.product.update({
+                    where: { id: offer.productId },
+                    data: { stock: { decrement: 1 } }
+                });
+
+                if (updatedProduct.stock <= 0) {
+                    await tx.product.update({
+                        where: { id: offer.productId },
+                        data: { isSoldOut: true }
+                    });
+
+                    await tx.offer.updateMany({
+                        where: {
+                            productId: offer.productId,
+                            id: { not: offerId },
+                            status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
+                        },
+                        data: {
+                            status: OfferStatus.REJECTED,
+                            sellerNote: 'Item Sold Out'
+                        }
+                    });
+                }
+
+                this.eventEmitter.emit('offer.counter_accepted', {
+                    sellerId: offer.product.post.authorId,
+                    offerId: offer.id
+                });
+
+                return acceptedOffer;
+            });
+        }
+    }
+
+    // 4. Get Incoming offers (Seller)
     async getIncomingOffers(userId: string) {
         return this.prisma.offer.findMany({
             where: {
@@ -246,8 +355,7 @@ export class OffersService {
         });
     }
 
-
-    // 4. Get My Offers (Buyer)
+    // 5. Get My Offers (Buyer)
     async getMyOffers(userId: string) {
         return this.prisma.offer.findMany({
             where: { buyerId: userId },
@@ -269,7 +377,7 @@ export class OffersService {
         });
     }
 
-    // 5. Get Accepted Offers without Order (for checkout)
+    // 6. Get Accepted Offers without Order (for checkout)
     async getAcceptedOffers(buyerId: string) {
         return this.prisma.offer.findMany({
             where: {
@@ -295,94 +403,7 @@ export class OffersService {
         });
     }
 
-    // *** NEW: 5. Buyer Respond to Counter-Offer ***
-    async respondToCounter(buyerId: string, offerId: string, action: 'ACCEPT' | 'REJECT') {
-        const offer = await this.prisma.offer.findUnique({
-            where: { id: offerId },
-            include: { product: { include: { post: true } } }
-        });
-
-        if (!offer) throw new NotFoundException('Offer not found');
-        if (offer.buyerId !== buyerId) throw new ForbiddenException('Not your offer');
-        if (offer.status !== OfferStatus.COUNTER_OFFERED) {
-            throw new BadRequestException('This offer has not been countered by seller');
-        }
-
-        // Check expiration
-        if (offer.expiresAt && new Date() > offer.expiresAt) {
-            await this.prisma.offer.update({
-                where: { id: offerId },
-                data: { status: OfferStatus.EXPIRED }
-            });
-            throw new BadRequestException('This offer has expired');
-        }
-
-        if (action === 'REJECT') {
-            const rejectedOffer = await this.prisma.offer.update({
-                where: { id: offerId },
-                data: { status: OfferStatus.REJECTED }
-            });
-
-            this.eventEmitter.emit('offer.counter_rejected', {
-                sellerId: offer.product.post.authorId,
-                offerId: offer.id
-            });
-
-            return rejectedOffer;
-        }
-
-        // ACCEPT counter-offer — only update status + stock, no Order.
-        if (action === 'ACCEPT') {
-            if (!offer.counterPrice) {
-                throw new BadRequestException('Counter price not found');
-            }
-
-            if (offer.product.stock <= 0) {
-                throw new BadRequestException('Product is out of stock now');
-            }
-
-            return this.prisma.$transaction(async (tx) => {
-                const acceptedOffer = await tx.offer.update({
-                    where: { id: offerId },
-                    data: { status: OfferStatus.ACCEPTED }
-                });
-
-                const updatedProduct = await tx.product.update({
-                    where: { id: offer.productId },
-                    data: {
-                        stock: { decrement: 1 },
-                    }
-                });
-
-                if (updatedProduct.stock <= 0) {
-                    await tx.product.update({
-                        where: { id: offer.productId },
-                        data: { isSoldOut: true }
-                    });
-
-                    await tx.offer.updateMany({
-                        where: {
-                            productId: offer.productId,
-                            id: { not: offerId },
-                            status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] }
-                        },
-                        data: {
-                            status: OfferStatus.REJECTED,
-                            sellerNote: "Item Sold Out"
-                        }
-                    });
-                }
-
-                this.eventEmitter.emit('offer.counter_accepted', {
-                    sellerId: offer.product.post.authorId,
-                    offerId: offer.id
-                });
-
-                return acceptedOffer;
-            });
-        }
-    }
-    // 6. Cron Job: Expire Offers
+    // 7. Cron Job: Expire Offers
     @Cron(CronExpression.EVERY_MINUTE)
     async handleCron() {
         const expiredOffers = await this.prisma.offer.updateMany({

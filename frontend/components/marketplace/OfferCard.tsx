@@ -86,8 +86,23 @@ export function OfferCard({
   const product = offer.product;
 
   const isExpired = offer.expiresAt && new Date(offer.expiresAt) < new Date();
-  const canRespond = offer.status === "PENDING" && !isExpired;
-  const canRespondCounter = offer.status === "COUNTER_OFFERED" && !isExpired;
+
+  // Turn-based logic using lastCounteredBy
+  // When PENDING: only seller can respond
+  // When COUNTER_OFFERED + lastCounteredBy=SELLER: buyer's turn
+  // When COUNTER_OFFERED + lastCounteredBy=BUYER: seller's turn
+  const canRespond = offer.status === "PENDING" && isSeller && !isExpired;
+  const canRespondCounter =
+    offer.status === "COUNTER_OFFERED" &&
+    !isExpired &&
+    ((isBuyer && offer.lastCounteredBy === "SELLER") ||
+      (isSeller && offer.lastCounteredBy === "BUYER"));
+
+  const isWaiting =
+    offer.status === "COUNTER_OFFERED" &&
+    !isExpired &&
+    ((isBuyer && offer.lastCounteredBy === "BUYER") ||
+      (isSeller && offer.lastCounteredBy === "SELLER"));
 
   // Local state for accounts in case props are missing/stale
   const [localBankAccounts, setLocalBankAccounts] = useState<BankAccount[]>([]);
@@ -331,9 +346,9 @@ export function OfferCard({
             </div>
           )}
 
-          {offer.counterNote && (
+          {offer.negotiationNote && (
             <div className="text-xs text-orange-600 dark:text-orange-400 italic mt-2">
-              Seller: "{offer.counterNote}"
+              {offer.lastCounteredBy === "SELLER" ? "Seller" : "Buyer"}: "{offer.negotiationNote}"
             </div>
           )}
 
@@ -359,14 +374,15 @@ export function OfferCard({
         {/* Actions */}
         {(canRespond || canRespondCounter) && (
           <div className="px-5 pb-5 flex gap-2">
-            {isSeller && canRespond && (
+            {/* Seller: can respond when PENDING or when buyer countered back */}
+            {isSeller && (canRespond || canRespondCounter) && (
               <>
                 <Button
                   onClick={requestAccept}
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  Accept Offer
+                  Accept
                 </Button>
                 <Button
                   onClick={requestCounter}
@@ -374,7 +390,7 @@ export function OfferCard({
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  Counter Offer
+                  Counter
                 </Button>
                 <Button
                   onClick={requestReject}
@@ -386,6 +402,7 @@ export function OfferCard({
               </>
             )}
 
+            {/* Buyer: can respond when seller countered */}
             {isBuyer && canRespondCounter && (
               <>
                 <Button
@@ -396,17 +413,24 @@ export function OfferCard({
                   Accept Counter
                 </Button>
                 <Button
-                  onClick={requestReject}
+                  onClick={requestCounter}
                   variant="outline"
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  Reject Counter
+                  Counter Back
+                </Button>
+                <Button
+                  onClick={requestReject}
+                  variant="destructive"
+                  disabled={isLoading}
+                >
+                  Reject
                 </Button>
               </>
             )}
 
-            {/* Buyer Cancel Button */}
+            {/* Buyer Cancel Button (only when PENDING = no counter yet) */}
             {isBuyer && offer.status === "PENDING" && !isExpired && (
               <Button
                 onClick={requestCancel}
@@ -420,6 +444,15 @@ export function OfferCard({
           </div>
         )}
 
+        {/* Waiting banner when it's the other party's turn */}
+        {isWaiting && (
+          <div className="px-5 pb-5">
+            <div className="text-center text-sm text-muted-foreground py-2 bg-muted/50 rounded-lg">
+              Waiting for {offer.lastCounteredBy === "BUYER" ? "seller" : "buyer"} to respond…
+            </div>
+          </div>
+        )}
+
         {isExpired && offer.status !== "EXPIRED" && (
           <div className="px-5 pb-5">
             <div className="text-center text-sm text-red-600 dark:text-red-400 py-2 bg-red-50 dark:bg-red-950/20 rounded-lg">
@@ -429,17 +462,16 @@ export function OfferCard({
         )}
       </div>
 
-      {isSeller && (
-        <CounterOfferDialog
-          open={isCounterDialogOpen}
-          onOpenChange={setIsCounterDialogOpen}
-          offer={offer}
-          onSuccess={() => {
-            setIsCounterDialogOpen(false);
-            onUpdate?.();
-          }}
-        />
-      )}
+      <CounterOfferDialog
+        open={isCounterDialogOpen}
+        onOpenChange={setIsCounterDialogOpen}
+        offer={offer}
+        role={role}
+        onSuccess={() => {
+          setIsCounterDialogOpen(false);
+          onUpdate?.();
+        }}
+      />
 
       <Dialog open={isBankDialogOpen} onOpenChange={setIsBankDialogOpen}>
         <DialogContent>

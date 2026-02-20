@@ -43,6 +43,11 @@ enum OfferStatus {
     CANCELLED
 }
 
+enum CounteredBy {
+    BUYER
+    SELLER
+}
+
 enum OrderStatus {
     TO_PAY
     TO_SHIP
@@ -108,7 +113,7 @@ model User {
     notifications Notification[]
     // messageReactions MessageReaction[]
     reportsMade   Report[]       @relation("Reporter")
-    reports       Report[]
+    // reports       Report[]
 
     followedBy Follow[] @relation("followedBy")
     following  Follow[] @relation("following")
@@ -309,9 +314,10 @@ model Offer {
     sellerNote String? @db.Text
 
     // Counter-offer fields
-    counterPrice Decimal? @db.Decimal(10, 2)
-    counterNote  String?  @db.Text
-    counterCount Int      @default(0)
+    counterPrice    Decimal?     @db.Decimal(10, 2)
+    negotiationNote String?      @db.Text // Latest note from whoever countered last (read with lastCounteredBy)
+    counterCount    Int          @default(0)
+    lastCounteredBy CounteredBy? // BUYER or SELLER — tracks whose turn it is to respond
 
     // Expiration
     expiresAt DateTime?
@@ -551,8 +557,8 @@ model Report {
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
-    user      User?    @relation(fields: [userId], references: [id])
-    userId    String?
+    // user      User?    @relation(fields: [userId], references: [id])
+    // userId    String?
 
     @@map("reports")
 }

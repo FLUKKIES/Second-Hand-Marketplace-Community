@@ -3,22 +3,19 @@ import { IsEnum, IsOptional, IsString, IsNumber } from 'class-validator';
 export enum OfferAction {
     ACCEPT = 'ACCEPT',
     REJECT = 'REJECT',
-    COUNTER = 'COUNTER' // NEW
+    COUNTER = 'COUNTER'
 }
 
 export class RespondOfferDto {
     @IsEnum(OfferAction)
     action: OfferAction;
 
+    // note: used as sellerNote on ACCEPT/REJECT, or negotiationNote on COUNTER
     @IsOptional()
     @IsString()
-    sellerNote?: string;
+    note?: string;
 
     @IsOptional()
     @IsNumber()
-    counterPrice?: number; // NEW: Required when action is COUNTER
-
-    @IsOptional()
-    @IsString()
-    bankAccountId?: string; // NEW: Optional for ACCEPT action (if multiple accounts)
+    counterPrice?: number; // Required when action is COUNTER
 }

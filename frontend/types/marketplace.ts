@@ -51,9 +51,12 @@ export interface Offer {
     id: string;
     offeredPrice: string;
     counterPrice?: string;
-    status: "PENDING" | "ACCEPTED" | "REJECTED" | "COUNTER_OFFERED" | "EXPIRED";
+    status: "PENDING" | "ACCEPTED" | "REJECTED" | "COUNTER_OFFERED" | "EXPIRED" | "CANCELLED";
     buyerNote?: string;
-    counterNote?: string;
+    sellerNote?: string;
+    negotiationNote?: string;   // Latest note from whoever countered last
+    lastCounteredBy?: "BUYER" | "SELLER"; // Whose turn it is to respond when COUNTER_OFFERED
+    counterCount?: number;
     expiresAt: string;
     createdAt: string;
     orderId?: string | null;
