@@ -308,6 +308,9 @@ model Offer {
     productId String
     product   Product @relation(fields: [productId], references: [id])
 
+    orderId String?
+    order   Order?  @relation(fields: [orderId], references: [id])
+
     offeredPrice Decimal @db.Decimal(10, 2)
 
     buyerNote  String? @db.Text
@@ -323,9 +326,6 @@ model Offer {
     expiresAt DateTime?
 
     status OfferStatus @default(PENDING)
-
-    orderId String?
-    order   Order?  @relation(fields: [orderId], references: [id])
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

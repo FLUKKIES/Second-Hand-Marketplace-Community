@@ -156,6 +156,7 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
                                                 await api.patch(`/orders/${order.id}/receive`, {});
                                                 toast.success("Order marked as received!");
                                                 onUpdate();
+                                                setIsReviewOpen(true);
                                             } catch (error) {
                                                 toast.error(getErrorMessage(error));
                                             }

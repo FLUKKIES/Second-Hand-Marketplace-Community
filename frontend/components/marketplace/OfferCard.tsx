@@ -176,9 +176,6 @@ export function OfferCard({
           bankAccountId: selectedBankAccountId || undefined, // Send selected ID
         });
         toast.success("Offer accepted! Order created.");
-
-        // Redirect to My Sales page
-        router.push("/marketplace/orders?tab=selling");
       } else if (canRespondCounter) {
         await api.patch(`/offers/${offer.id}/respond-counter`, {
           action: "ACCEPT",

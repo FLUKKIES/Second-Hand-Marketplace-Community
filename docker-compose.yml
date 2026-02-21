@@ -44,7 +44,6 @@ services:
             - "11434:11434"
         networks:
             - marketplace-network
-
     # backend:
     #     build: ./backend
     #     container_name: marketplace-backend
@@ -114,6 +113,8 @@ volumes:
     pgdata:
     pgadmin_data:
     ollama_storage:
+    uploads_data_dev:
+        # Persistent storage for uploaded images (dev environment)
 
 
 networks:
