@@ -49,7 +49,7 @@ enum CounteredBy {
 }
 
 enum OrderStatus {
-    TO_PAY
+    TO_VERIFY
     TO_SHIP
     TO_RECEIVE
     COMPLETED
@@ -347,7 +347,7 @@ model Order {
     seller   User   @relation("SellerOrders", fields: [sellerId], references: [id])
 
     totalPrice Decimal     @db.Decimal(10, 2)
-    status     OrderStatus @default(TO_PAY)
+    status     OrderStatus @default(TO_VERIFY)
 
     shippingAddress String @db.Text
     paymentSnapshot Json

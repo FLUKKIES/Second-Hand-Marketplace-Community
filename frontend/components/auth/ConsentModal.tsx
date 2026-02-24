@@ -62,12 +62,10 @@ export function ConsentModal() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2 text-primary">
               <Shield className="h-6 w-6" />
-              เงื่อนไขการให้บริการและนโยบายความเป็นส่วนตัว
+              Terms of Service and Privacy Policy
             </DialogTitle>
             <DialogDescription className="text-base text-gray-500 mt-2">
-              เพื่อให้เป็นไปตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA)
-              และมาตรฐานสากล
-              โปรดสละเวลาอ่านและยอมรับเงื่อนไขด้านล่างเพื่อดำเนินการต่อ
+              To comply with the Personal Data Protection Act (PDPA) and international standards, please take a moment to read and accept the terms below to continue.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -80,13 +78,10 @@ export function ConsentModal() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">
-                  1. การเก็บรวบรวมข้อมูลส่วนบุคคล
+                  1. Personal Data Collection
                 </h3>
                 <p className="leading-relaxed">
-                  เราจะเก็บรวบรวมข้อมูลส่วนบุคคลของท่านเท่าที่จำเป็นและเป็นประโยชน์ต่อการใช้งานเว็บไซต์
-                  เช่น ชื่อ-นามสกุล, อีเมล (Email), และข้อมูลการติดต่อ
-                  เพื่อให้ท่านสามารถสร้างบัญชีผู้ใช้ โพสต์ข้อความ
-                  และซื้อขายสินค้าได้อย่างปลอดภัย
+                  We collect your personal information only as necessary and beneficial for using the website, such as your full name, email, and contact details, so you can safely create an account, post messages, and trade items.
                 </p>
               </div>
             </div>
@@ -97,17 +92,15 @@ export function ConsentModal() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">
-                  2. วัตถุประสงค์การใช้งานข้อมูล
+                  2. Purpose of Data Use
                 </h3>
                 <span className="leading-relaxed">
-                  ข้อมูลของท่านจะถูกนำไปใช้เพื่อ:
+                  Your data will be used to:
                   <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li>ยืนยันตัวตนและการสร้างบัญชี</li>
-                    <li>
-                      อำนวยความสะดวกในการซื้อขายและการสื่อสารระหว่างผู้ใช้
-                    </li>
-                    <li>พัฒนาและปรับปรุงประสิทธิภาพของระบบ</li>
-                    <li>ปฏิบัติตามกฎหมายและข้อบังคับที่เกี่ยวข้อง</li>
+                    <li>Verify identity and create an account</li>
+                    <li>Facilitate trading and communication between users</li>
+                    <li>Develop and improve system efficiency</li>
+                    <li>Comply with relevant laws and regulations</li>
                   </ul>
                 </span>
               </div>
@@ -119,12 +112,10 @@ export function ConsentModal() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">
-                  3. การเปิดเผยข้อมูล
+                  3. Data Disclosure
                 </h3>
                 <p className="leading-relaxed">
-                  เราจะไม่เปิดเผยข้อมูลส่วนบุคคลของท่านแก่บุคคลภายนอก
-                  เว้นแต่ได้รับความยินยอมจากท่าน หรือเป็นการปฏิบัติตามคำสั่งศาล
-                  หรือกฎหมายที่เกี่ยวข้อง
+                  We will not disclose your personal information to third parties unless we have your consent or as required by court order or relevant laws.
                 </p>
               </div>
             </div>
@@ -135,22 +126,17 @@ export function ConsentModal() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2">
-                  4. สิทธิของเจ้าของข้อมูล
+                  4. Data Subject Rights
                 </h3>
                 <p className="leading-relaxed">
-                  ท่านมีสิทธิในการขอเข้าถึง แก้ไข ลบ
-                  หรือระงับการใช้ข้อมูลส่วนบุคคลของท่านได้ตลอดเวลา
-                  โดยสามารถติดต่อผ่านช่องทาง Support ของเรา
-                  หรือจัดการผ่านหน้าตั้งค่าโปรไฟล์
+                  You have the right to request access, correction, deletion, or suspension of the use of your personal data at any time by contacting our Support channel or managing it through the profile settings page.
                 </p>
               </div>
             </div>
 
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 mt-4">
               <p className="text-xs text-gray-500">
-                * การกด "ยอมรับ" หมายความว่าท่านได้อ่าน ทำความเข้าใจ
-                และยอมรับข้อตกลงและเงื่อนไขข้างต้นทั้งหมด
-                รวมถึงนโยบายความเป็นส่วนตัวของเรา
+                * By clicking &quot;Accept&quot;, you acknowledge that you have read, understood, and accept all the terms and conditions above, including our Privacy Policy.
               </p>
             </div>
           </div>
@@ -168,7 +154,7 @@ export function ConsentModal() {
                 htmlFor="terms"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
               >
-                ข้าพเจ้ายอมรับข้อกำหนดและเงื่อนไข
+                I accept the terms and conditions
               </label>
             </div>
             <Button
@@ -176,7 +162,7 @@ export function ConsentModal() {
               disabled={!accepted || loading}
               className="w-full sm:w-auto min-w-[150px]"
             >
-              {loading ? "กำลังดำเนินการ..." : "ยอมรับและดำเนินการต่อ"}
+              {loading ? "Processing..." : "Accept and Continue"}
             </Button>
           </div>
         </div>

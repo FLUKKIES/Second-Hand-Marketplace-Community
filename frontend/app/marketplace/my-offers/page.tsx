@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { api, getErrorMessage } from "@/lib/api";
-import { Offer } from "@/types/marketplace";
+import { Offer, Address } from "@/types/marketplace";
 import { OfferCard } from "@/components/marketplace/OfferCard";
 import {
     Loader2,
@@ -14,19 +14,67 @@ import {
     ChevronRight,
     CheckSquare,
     Square,
+    MapPin,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LeftSidebar } from "@/components/layout/LeftSidebar";
 import { Navbar } from "@/components/common/Navbar";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface SellerGroup {
     sellerId: string;
     sellerName: string;
     sellerAvatar: string | null;
     offers: Offer[];
+}
+
+function CheckoutTimer({ expiresAt }: { expiresAt: string }) {
+    const [timeLeft, setTimeLeft] = useState<string>("");
+
+    useEffect(() => {
+        if (!expiresAt) return;
+
+        const calculateTimeLeft = () => {
+            const difference = new Date(expiresAt).getTime() - new Date().getTime();
+            if (difference <= 0) {
+                setTimeLeft("Expired");
+                return;
+            }
+
+            const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((difference / 1000 / 60) % 60);
+            const seconds = Math.floor((difference / 1000) % 60);
+            setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        };
+
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
+        return () => clearInterval(timer);
+    }, [expiresAt]);
+
+    if (!timeLeft) return null;
+
+    return (
+        <div className="flex flex-col items-end justify-center text-xs ml-3">
+            <span className="text-gray-500 mb-0.5 whitespace-nowrap">Checkout Time Left</span>
+            <span className={cn("font-mono font-medium", timeLeft === "Expired" ? "text-red-500" : "text-emerald-600")}>
+                {timeLeft}
+            </span>
+        </div>
+    );
 }
 
 export default function MyOffersPage() {
@@ -51,23 +99,47 @@ export default function MyOffersPage() {
     // Multi-offer checkout state
     const [selectedOfferIds, setSelectedOfferIds] = useState<Set<string>>(new Set());
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [selectedAddressId, setSelectedAddressId] = useState("");
+    const [myAddresses, setMyAddresses] = useState<Address[]>([]);
+    const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+    const [sellerBankAccount, setSellerBankAccount] = useState<any>(null);
+    const [isLoadingBank, setIsLoadingBank] = useState(false);
+    const [paymentSlipFile, setPaymentSlipFile] = useState<File | null>(null);
+    const router = useRouter();
 
     useEffect(() => {
         fetchOffers();
+        fetchMyAddresses();
     }, []);
+
+    const fetchMyAddresses = async () => {
+        try {
+            setIsLoadingAddresses(true);
+            const data = await api.get<Address[]>("/addresses/me");
+            setMyAddresses(data);
+            const defaultAddr = data.find(a => a.isDefault);
+            if (defaultAddr) {
+                setSelectedAddressId(defaultAddr.id);
+            } else if (data.length > 0) {
+                setSelectedAddressId(data[0].id);
+            }
+        } catch (error) {
+            console.error("Failed to fetch addresses:", getErrorMessage(error));
+        } finally {
+            setIsLoadingAddresses(false);
+        }
+    };
 
     const fetchOffers = async () => {
         try {
             setIsLoading(true);
-            const [sentData, receivedData, bankAccountsData] = await Promise.all([
+            const [sentData, receivedData] = await Promise.all([
                 api.get<Offer[]>("/offers/my-offers"),
                 api.get<Offer[]>("/offers/incoming"),
-                api.get<any[]>("/bank-accounts/me"),
             ]);
             setMyOffers(sentData);
             setIncomingOffers(receivedData);
-            setBankAccounts(Array.isArray(bankAccountsData) ? bankAccountsData : []);
-            setHasBankAccount(Array.isArray(bankAccountsData) && bankAccountsData.length > 0);
             setSelectedOfferIds(new Set());
         } catch (error) {
             console.error("Failed to fetch offers:", getErrorMessage(error));
@@ -178,8 +250,29 @@ export default function MyOffersPage() {
         return { count: selected.length, itemsTotal, shippingCost: maxShipping, total: itemsTotal + maxShipping };
     }, [selectedOfferIds, myOffers]);
 
+    const fetchSellerBank = async (sellerId: string) => {
+        try {
+            setIsLoadingBank(true);
+            const bankAccount = await api.get<any>(`/bank-accounts/user/${sellerId}`);
+            setSellerBankAccount(bankAccount);
+        } catch (error) {
+            console.error(error);
+            toast.error("Seller hasn't set up a bank account yet.");
+            setSellerBankAccount(null);
+        } finally {
+            setIsLoadingBank(false);
+        }
+    };
+
     const handleCheckout = async () => {
         if (selectedOfferIds.size === 0) return;
+        if (!selectedAddressId) { toast.error("Shipping address required"); return; }
+        if (!paymentSlipFile) { toast.error("Payment slip required"); return; }
+        if (!sellerBankAccount) { toast.error("Seller has no bank account"); return; }
+
+        const selectedAddress = myAddresses.find(a => a.id === selectedAddressId);
+        if (!selectedAddress) { toast.error("Invalid shipping address selected"); return; }
+        const shippingAddressString = `${selectedAddress.addressLine1} ${selectedAddress.addressLine2 ? selectedAddress.addressLine2 + ' ' : ''}${selectedAddress.subDistrict}, ${selectedAddress.district}, ${selectedAddress.province} ${selectedAddress.postalCode} ${selectedAddress.phoneNumber ? '(Phone: ' + selectedAddress.phoneNumber + ')' : ''}`.trim();
 
         const readyOffers = getReadyToCheckout(myOffers);
         const selected = readyOffers.filter(o => selectedOfferIds.has(o.id));
@@ -191,12 +284,17 @@ export default function MyOffersPage() {
 
         try {
             setIsCheckingOut(true);
+            const slipUrl = await api.uploadImage(paymentSlipFile, 'slip');
             await api.post("/orders/create-from-offers", {
                 offerIds: Array.from(selectedOfferIds),
+                shippingAddress: shippingAddressString,
+                paymentSlipUrl: slipUrl
             });
             toast.success("Order created successfully! 🎉");
             setSelectedOfferIds(new Set());
-            fetchOffers();
+            setPaymentSlipFile(null);
+            setIsAddressModalOpen(false);
+            router.push('/marketplace/orders');
         } catch (error) {
             toast.error(getErrorMessage(error));
         } finally {
@@ -277,8 +375,6 @@ export default function MyOffersPage() {
                                 offer={offer}
                                 role={role}
                                 onUpdate={fetchOffers}
-                                hasUserBankAccount={hasBankAccount}
-                                userBankAccounts={bankAccounts}
                                 hideUserProfile
                             />
                         ))}
@@ -390,6 +486,9 @@ export default function MyOffersPage() {
                                                                     </span>
                                                                 </div>
                                                             </div>
+                                                            {offer.expiresAt && (
+                                                                <CheckoutTimer expiresAt={offer.expiresAt} />
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -422,7 +521,11 @@ export default function MyOffersPage() {
                                             ฿{selectedCheckoutSummary.total.toLocaleString()}
                                         </p>
                                         <Button
-                                            onClick={handleCheckout}
+                                            onClick={() => {
+                                                const sellerId = getSelectedSellerId();
+                                                if (sellerId) fetchSellerBank(sellerId);
+                                                setIsAddressModalOpen(true);
+                                            }}
                                             disabled={isCheckingOut}
                                             className="mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl px-6 shadow-lg shadow-emerald-200"
                                         >
@@ -431,7 +534,7 @@ export default function MyOffersPage() {
                                             ) : (
                                                 <ShoppingCart size={16} className="mr-2" />
                                             )}
-                                            Create Order
+                                            Checkout
                                         </Button>
                                     </div>
                                 </div>
@@ -524,7 +627,7 @@ export default function MyOffersPage() {
                             ) : (
                                 <div className="grid gap-3 opacity-75 hover:opacity-100 transition-opacity">
                                     {cancelled.map(offer => (
-                                        <OfferCard key={offer.id} offer={offer} role="buyer" onUpdate={fetchOffers} hasUserBankAccount={hasBankAccount} />
+                                        <OfferCard key={offer.id} offer={offer} role="buyer" onUpdate={fetchOffers} />
                                     ))}
                                 </div>
                             )}
@@ -636,7 +739,7 @@ export default function MyOffersPage() {
                             ) : (
                                 <div className="grid gap-3 opacity-75 hover:opacity-100 transition-opacity">
                                     {cancelled.map(offer => (
-                                        <OfferCard key={offer.id} offer={offer} role="seller" onUpdate={fetchOffers} hasUserBankAccount={hasBankAccount} userBankAccounts={bankAccounts} />
+                                        <OfferCard key={offer.id} offer={offer} role="seller" onUpdate={fetchOffers} />
                                     ))}
                                 </div>
                             )}
@@ -721,6 +824,149 @@ export default function MyOffersPage() {
                     </div>
                 </div>
             </main>
-        </div>
+
+            {/* Address Selection Dialog */}
+            <Dialog open={isAddressModalOpen} onOpenChange={(open) => {
+                setIsAddressModalOpen(open);
+                if (!open) { setPaymentSlipFile(null); setSellerBankAccount(null); }
+            }}>
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Complete Checkout</DialogTitle>
+                        <DialogDescription>
+                            Please provide your shipping address and upload a payment slip to complete the order.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Shipping Address</Label>
+                            {isLoadingAddresses ? (
+                                <div className="flex justify-center p-4"><Loader2 className="animate-spin text-indigo-500" /></div>
+                            ) : myAddresses.length > 0 ? (
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                    {myAddresses.map((addr) => (
+                                        <div
+                                            key={addr.id}
+                                            onClick={() => setSelectedAddressId(addr.id)}
+                                            className={cn(
+                                                "p-3 rounded-lg border cursor-pointer transition-colors relative",
+                                                selectedAddressId === addr.id ? "border-indigo-600 bg-indigo-50" : "border-gray-200 hover:border-indigo-300"
+                                            )}
+                                        >
+                                            <div className="font-semibold text-sm text-gray-900 mb-1">{addr.label} {addr.isDefault && <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">Default</span>}</div>
+                                            <div className="text-sm text-gray-600">
+                                                {addr.addressLine1} {addr.addressLine2}
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                {addr.subDistrict}, {addr.district}, {addr.province} {addr.postalCode}
+                                                {addr.phoneNumber && <span> • {addr.phoneNumber}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <Button variant="outline" className="w-full mt-2" onClick={() => { setIsAddressModalOpen(false); router.push("/settings/address"); }}>
+                                        Manage Addresses
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="p-4 bg-gray-50 text-gray-600 rounded-lg text-sm border border-gray-200 text-center space-y-3">
+                                    <p>You haven't added any shipping address yet.</p>
+                                    <Button onClick={() => { setIsAddressModalOpen(false); router.push("/settings/address"); }}>
+                                        Add Address
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Order Summary */}
+                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                            <h3 className="font-semibold text-gray-900 border-b border-gray-200 pb-2">Order Summary</h3>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>Subtotal ({selectedCheckoutSummary.count} items)</span>
+                                <span>฿{selectedCheckoutSummary.itemsTotal.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>Shipping Fee</span>
+                                <span>{selectedCheckoutSummary.shippingCost === 0 ? "Free" : `฿${selectedCheckoutSummary.shippingCost.toLocaleString()}`}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-200 text-base">
+                                <span>Total Payment</span>
+                                <span className="text-indigo-600">฿{selectedCheckoutSummary.total.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Bank Info Display */}
+                        {isLoadingBank ? (
+                            <div className="flex justify-center p-4"><Loader2 className="animate-spin text-indigo-500" /></div>
+                        ) : sellerBankAccount ? (
+                            <div className="p-4 bg-indigo-50 rounded-xl text-sm space-y-2 border border-indigo-100">
+                                <div className="font-semibold text-indigo-900">Transfer Payment To</div>
+                                <div className="flex justify-between">
+                                    <span className="text-indigo-700">Bank:</span>
+                                    <span className="font-medium text-indigo-900">{sellerBankAccount.bank?.name || '-'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-indigo-700">Account Name:</span>
+                                    <span className="font-medium text-indigo-900">{sellerBankAccount.accountName || '-'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-indigo-700">Account Number:</span>
+                                    <span className="font-mono font-bold text-indigo-900">{sellerBankAccount.accountNumber || '-'}</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
+                                Seller has no bank account. Cannot checkout.
+                            </div>
+                        )}
+
+                        {/* Payment Slip Upload */}
+                        <div className="space-y-2">
+                            <Label>Payment Slip</Label>
+                            <div className="border-2 border-dashed border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors rounded-xl p-6 text-center cursor-pointer relative bg-gray-50">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            setPaymentSlipFile(e.target.files[0]);
+                                        }
+                                    }}
+                                />
+                                {paymentSlipFile ? (
+                                    <div className="space-y-2">
+                                        <div className="text-sm font-bold text-emerald-600 bg-emerald-50 py-2 px-4 rounded-lg inline-block border border-emerald-200">
+                                            {paymentSlipFile.name}
+                                        </div>
+                                        <p className="text-xs text-gray-500">Click to replace</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2 text-gray-500">
+                                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mx-auto shadow-sm border border-gray-200">
+                                            <ShoppingCart size={20} className="text-indigo-400" />
+                                        </div>
+                                        <div className="text-sm font-medium">Click to upload slip</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddressModalOpen(false)} disabled={isCheckingOut}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCheckout}
+                            disabled={isCheckingOut || !selectedAddressId || !paymentSlipFile || !sellerBankAccount}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                            {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirm Order
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }

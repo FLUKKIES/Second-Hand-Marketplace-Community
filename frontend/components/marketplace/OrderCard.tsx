@@ -8,7 +8,6 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { Package, Truck, CheckCircle, XCircle, UploadCloud } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PaymentDialog } from "./PaymentDialog";
 import { ShippingDialog } from "./ShippingDialog";
 import { ReviewDialog } from "./ReviewDialog";
 import { toast } from "sonner";
@@ -35,13 +34,13 @@ interface OrderCardProps {
 export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardProps) {
     const isBuyer = role === "buyer";
     const otherParty = isBuyer ? order.seller : order.buyer;
-    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isShippingOpen, setIsShippingOpen] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
+    const [pendingUpdate, setPendingUpdate] = useState(false);
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "TO_PAY": return "bg-yellow-100 text-yellow-800";
+            case "TO_VERIFY": return "bg-yellow-100 text-yellow-800";
             case "TO_SHIP": return "bg-blue-100 text-blue-800";
             case "TO_RECEIVE": return "bg-purple-100 text-purple-800";
             case "COMPLETED": return "bg-green-100 text-green-800";
@@ -114,17 +113,57 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
                 )}
 
                 <div className="flex justify-end gap-2 pt-2">
-                    {/* Buyer Actions: Pay Now */}
-                    {isBuyer && order.status === "TO_PAY" && (
+                    {/* View Slip (Both Buyer and Seller) */}
+                    {["TO_VERIFY", "TO_SHIP", "TO_RECEIVE", "COMPLETED"].includes(order.status) && order.paymentSlipUrl && (
                         <Button
-                            variant="default"
+                            variant="outline"
                             size="sm"
-                            onClick={() => setIsPaymentOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            onClick={() => window.open(api.getImageUrl(order.paymentSlipUrl), "_blank")}
                         >
                             <UploadCloud className="w-4 h-4 mr-2" />
-                            Upload Slip
+                            View Slip
                         </Button>
+                    )}
+
+                    {/* Seller Actions: Verify Payment */}
+                    {!isBuyer && order.status === "TO_VERIFY" && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Verify Payment
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Verify Payment Slip</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Are you sure you want to verify this payment? Please ensure you have checked your bank account and confirmed that the transferred amount matches the order total.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                        onClick={async () => {
+                                            try {
+                                                await api.patch(`/orders/${order.id}/verify`, {});
+                                                toast.success("Payment verified! Order is now TO_SHIP.");
+                                                onUpdate();
+                                            } catch (error) {
+                                                toast.error(getErrorMessage(error) || "Failed to verify payment");
+                                            }
+                                        }}
+                                    >
+                                        Yes, Verify Payment
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     )}
 
                     {/* Buyer Actions: Mark as Received */}
@@ -155,7 +194,7 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
                                             try {
                                                 await api.patch(`/orders/${order.id}/receive`, {});
                                                 toast.success("Order marked as received!");
-                                                onUpdate();
+                                                setPendingUpdate(true);
                                                 setIsReviewOpen(true);
                                             } catch (error) {
                                                 toast.error(getErrorMessage(error));
@@ -181,17 +220,7 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
                         </Button>
                     )}
 
-                    {/* Seller Actions: View Slip */}
-                    {!isBuyer && ["TO_SHIP", "TO_RECEIVE", "COMPLETED"].includes(order.status) && order.paymentSlipUrl && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(api.getImageUrl(order.paymentSlipUrl), "_blank")}
-                        >
-                            <UploadCloud className="w-4 h-4 mr-2" />
-                            View Slip
-                        </Button>
-                    )}
+
 
                     {/* Seller Actions: Ship Order / Edit Tracking */}
                     {!isBuyer && (order.status === "TO_SHIP" || order.status === "TO_RECEIVE") && (
@@ -214,13 +243,6 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
                 </div>
             </Card >
 
-            <PaymentDialog
-                open={isPaymentOpen}
-                onOpenChange={setIsPaymentOpen}
-                order={order}
-                onSuccess={onUpdate}
-            />
-
             <ShippingDialog
                 open={isShippingOpen}
                 onOpenChange={setIsShippingOpen}
@@ -230,9 +252,17 @@ export function OrderCard({ order, role, onUpdate, hideUserProfile }: OrderCardP
 
             <ReviewDialog
                 open={isReviewOpen}
-                onOpenChange={setIsReviewOpen}
+                onOpenChange={(open) => {
+                    setIsReviewOpen(open);
+                    if (!open && pendingUpdate) {
+                        onUpdate();
+                        setPendingUpdate(false);
+                    }
+                }}
                 order={order}
-                onSuccess={onUpdate}
+                onSuccess={() => {
+                    if (!pendingUpdate) onUpdate();
+                }}
             />
         </>
     );

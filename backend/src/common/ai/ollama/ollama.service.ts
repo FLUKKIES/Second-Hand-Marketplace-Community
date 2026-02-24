@@ -42,31 +42,31 @@ export class OllamaService {
 
     async interpretSearchQuery(query: string): Promise<any> {
         const prompt = `
-You are a search intent interpreter for a marketplace application. 
-Analyze the user's search query and extract structured filters.
+            You are a search intent interpreter for a marketplace application. 
+            Analyze the user's search query and extract structured filters.
 
-User Query: "${query}"
+            User Query: "${query}"
 
-Rules:
-1. keyword: Extract the main product or topic (remove qualitative adjectives).
-2. minRating: If user asks for "reliable", "trustworthy", "good seller", set to 4. Otherwise null.
-3. sortBy: 
-   - "PRICE_ASC" if user says "cheap", "budget", "low price".
-   - "PRICE_DESC" if user says "expensive", "premium".
-   - null otherwise.
-4. detectedType:
-   - "SELLING" if user wants to buy/shop (e.g., "buy", "price", "second hand", "deal").
-   - "NORMAL" if user wants reviews, opinions, or general talk (e.g., "review", "is it good?", "help").
-   - "MIXED" if unclear.
+            Rules:
+            1. keyword: Extract the main product or topic (remove qualitative adjectives).
+            2. minRating: If user asks for "reliable", "trustworthy", "good seller", set to 4. Otherwise null.
+            3. sortBy: 
+            - "PRICE_ASC" if user says "cheap", "budget", "low price".
+            - "PRICE_DESC" if user says "expensive", "premium".
+            - null otherwise.
+            4. detectedType:
+            - "SELLING" if user wants to buy/shop (e.g., "buy", "price", "second hand", "deal").
+            - "NORMAL" if user wants reviews, opinions, or general talk (e.g., "review", "is it good?", "help").
+            - "MIXED" if unclear.
 
-Output strictly valid JSON only:
-{
-  "keyword": string,
-  "minRating": number | null,
-  "sortBy": "PRICE_ASC" | "PRICE_DESC" | null,
-  "detectedType": "SELLING" | "NORMAL" | "MIXED"
-}
-`;
+            Output strictly valid JSON only:
+            {
+                "keyword": string,
+                "minRating": number | null,
+                "sortBy": "PRICE_ASC" | "PRICE_DESC" | null,
+                "detectedType": "SELLING" | "NORMAL" | "MIXED"
+            }
+        `;
 
         try {
             const { data } = await firstValueFrom(

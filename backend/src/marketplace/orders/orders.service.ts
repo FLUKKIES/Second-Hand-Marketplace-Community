@@ -116,20 +116,17 @@ export class OrdersService {
                     promptPay: ''
                 };
 
-                const paymentDueAt = new Date();
-                paymentDueAt.setHours(paymentDueAt.getHours() + 24);
-
                 // Create Order
                 const order = await tx.order.create({
                     data: {
                         buyerId: buyerId,
                         sellerId: sellerId,
                         totalPrice: totalOrderPrice,
-                        status: OrderStatus.TO_PAY,
+                        status: OrderStatus.TO_VERIFY,
                         shippingAddress: dto.shippingAddress,
                         paymentSnapshot: paymentSnapshot as any,
                         items: { create: orderItemsData },
-                        paymentDueAt
+                        paymentSlipUrl: dto.paymentSlipUrl
                     }
                 });
                 createdOrders.push(order);
@@ -208,7 +205,7 @@ export class OrdersService {
         const bankAccount = seller.bankAccounts.find(b => b.isDefault) || seller.bankAccounts[0];
 
         if (!bankAccount) {
-            throw new BadRequestException('Seller has no bank account set up');
+            throw new BadRequestException('This seller has not set up a bank account yet. Please contact the seller or wait for them to add one before checking out.');
         }
 
         const paymentSnapshot = {
@@ -236,9 +233,6 @@ export class OrdersService {
 
         // 7. Create Order in a transaction
         return this.prisma.$transaction(async (tx) => {
-            const paymentDueAt = new Date();
-            paymentDueAt.setHours(paymentDueAt.getHours() + 24);
-
             const orderItemsData: Prisma.OrderItemUncheckedCreateWithoutOrderInput[] = offers.map(offer => ({
                 productId: offer.productId,
                 price: offer.counterPrice ? offer.counterPrice : offer.offeredPrice,
@@ -250,10 +244,10 @@ export class OrdersService {
                     buyerId: buyerId,
                     sellerId: sellerId,
                     totalPrice: totalPrice,
-                    status: OrderStatus.TO_PAY,
+                    status: OrderStatus.TO_VERIFY,
                     shippingAddress: shippingAddress,
                     paymentSnapshot: paymentSnapshot as any,
-                    paymentDueAt: paymentDueAt,
+                    paymentSlipUrl: dto.paymentSlipUrl,
                     items: { create: orderItemsData },
                     offers: {
                         connect: dto.offerIds.map(id => ({ id }))
@@ -274,25 +268,24 @@ export class OrdersService {
         });
     }
 
-    // 2. Buyer Pay
-    async confirmPayment(buyerId: string, orderId: string, dto: ConfirmPaymentDto) {
+    // 2. Seller Verify Payment
+    async verifyPayment(sellerId: string, orderId: string) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
 
         if (!order) throw new NotFoundException('Order not found');
-        if (order.buyerId !== buyerId) throw new ForbiddenException('Not your order');
-        if (order.status !== OrderStatus.TO_PAY) throw new BadRequestException('Order status is not TO_PAY');
+        if (order.sellerId !== sellerId) throw new ForbiddenException('Not your order');
+        if (order.status !== OrderStatus.TO_VERIFY) throw new BadRequestException('Order status is not TO_VERIFY');
 
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: {
                 status: OrderStatus.TO_SHIP,
-                paymentSlipUrl: dto.slipUrl,
             },
         });
 
-        // EMIT EVENT: Order Paid (Notify Seller)
+        // EMIT EVENT: Order Paid (Notify Buyer that payment is verified)
         this.eventEmitter.emit('order.paid', {
-            sellerId: order.sellerId,
+            buyerId: order.buyerId,
             orderId: order.id
         });
 
@@ -456,54 +449,5 @@ export class OrdersService {
 
         return order;
     }
-    // 8. Cron Job: Expire Unpaid Orders
-    @Cron(CronExpression.EVERY_MINUTE)
-    async handlePaymentCron() {
-        const now = new Date();
-        const overdueOrders = await this.prisma.order.findMany({
-            where: {
-                status: OrderStatus.TO_PAY,
-                paymentDueAt: { lt: now }
-            },
-            include: { items: true }
-        });
 
-        if (overdueOrders.length === 0) return;
-
-        console.log(`[Cron] Found ${overdueOrders.length} overdue orders`);
-
-        for (const order of overdueOrders) {
-            await this.prisma.$transaction(async (tx) => {
-                // Cancel Order
-                await tx.order.update({
-                    where: { id: order.id },
-                    data: { status: OrderStatus.CANCELLED }
-                });
-
-                // Restore Stock
-                for (const item of order.items) {
-                    await tx.product.update({
-                        where: { id: item.productId },
-                        data: {
-                            stock: { increment: item.quantity },
-                            isSoldOut: false
-                        }
-                    });
-                }
-            });
-
-            // Emit Event
-            this.eventEmitter.emit('order.cancelled', {
-                targetUserId: order.buyerId, // Notify Buyer
-                orderId: order.id,
-                cancelledBy: 'SYSTEM'
-            });
-
-            this.eventEmitter.emit('order.cancelled', {
-                targetUserId: order.sellerId, // Notify Seller
-                orderId: order.id,
-                cancelledBy: 'SYSTEM'
-            });
-        }
-    }
 }

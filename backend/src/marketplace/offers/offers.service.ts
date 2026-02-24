@@ -167,24 +167,13 @@ export class OffersService {
         if (dto.action === OfferAction.ACCEPT) {
             if (offer.product.stock <= 0) throw new BadRequestException('Product is out of stock now');
 
-            const seller = await this.prisma.user.findUnique({
-                where: { id: sellerId },
-                select: {
-                    username: true,
-                    bankAccounts: { include: { bank: true } }
-                }
-            });
-
-            if (!seller || !seller.bankAccounts || seller.bankAccounts.length === 0) {
-                throw new BadRequestException('Please add a bank account before accepting offers. Go to Settings → Bank Accounts');
-            }
-
             return this.prisma.$transaction(async (tx) => {
                 const acceptedOffer = await tx.offer.update({
                     where: { id: offerId },
                     data: {
                         status: OfferStatus.ACCEPTED,
-                        sellerNote: dto.note
+                        sellerNote: dto.note,
+                        expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000)
                     }
                 });
 
@@ -304,7 +293,10 @@ export class OffersService {
             return this.prisma.$transaction(async (tx) => {
                 const acceptedOffer = await tx.offer.update({
                     where: { id: offerId },
-                    data: { status: OfferStatus.ACCEPTED }
+                    data: {
+                        status: OfferStatus.ACCEPTED,
+                        expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000)
+                    }
                 });
 
                 const updatedProduct = await tx.product.update({
@@ -403,13 +395,16 @@ export class OffersService {
         });
     }
 
-    // 7. Cron Job: Expire Offers
+    // 7. Cron Job: Expire Offers & Checkouts
     @Cron(CronExpression.EVERY_MINUTE)
     async handleCron() {
+        const now = new Date();
+
+        // 1. Expire normal pending/countered offers
         const expiredOffers = await this.prisma.offer.updateMany({
             where: {
                 status: { in: [OfferStatus.PENDING, OfferStatus.COUNTER_OFFERED] },
-                expiresAt: { lt: new Date() }
+                expiresAt: { lt: now }
             },
             data: {
                 status: OfferStatus.EXPIRED
@@ -417,7 +412,38 @@ export class OffersService {
         });
 
         if (expiredOffers.count > 0) {
-            console.log(`[Cron] Expired ${expiredOffers.count} offers`);
+            console.log(`[Cron] Expired ${expiredOffers.count} pending offers`);
+        }
+
+        // 2. Expire accepted offers (Checkout Timeout 5 hours)
+        const expiredCheckoutOffers = await this.prisma.offer.findMany({
+            where: {
+                status: OfferStatus.ACCEPTED,
+                expiresAt: { lt: now },
+                orderId: null
+            },
+            include: { product: true }
+        });
+
+        if (expiredCheckoutOffers.length > 0) {
+            console.log(`[Cron] Expired ${expiredCheckoutOffers.length} accepted offers (Checkout Timeout)`);
+            for (const offer of expiredCheckoutOffers) {
+                await this.prisma.$transaction(async (tx) => {
+                    await tx.offer.update({
+                        where: { id: offer.id },
+                        data: { status: OfferStatus.CANCELLED }
+                    });
+
+                    // Restore Stock
+                    await tx.product.update({
+                        where: { id: offer.productId },
+                        data: {
+                            stock: { increment: 1 },
+                            isSoldOut: false
+                        }
+                    });
+                });
+            }
         }
     }
 }

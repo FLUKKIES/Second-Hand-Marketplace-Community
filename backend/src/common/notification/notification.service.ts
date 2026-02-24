@@ -165,12 +165,17 @@ export class NotificationService {
     }
 
     @OnEvent('offer.countered')
-    async handleOfferCountered(payload: { buyerId: string, offerId: string, counterPrice: number }) {
+    async handleOfferCountered(payload: { buyerId: string, offerId: string, counterPrice: number, sellerId?: string }) {
+        const targetUserId = payload.sellerId ? payload.sellerId : payload.buyerId;
+        const message = payload.sellerId
+            ? `Buyer made a counter offer of ฿${Number(payload.counterPrice).toLocaleString()}. Check your offers to respond.`
+            : `Seller made a counter offer of ฿${Number(payload.counterPrice).toLocaleString()}. Check your offers to respond.`;
+
         await this.createNotification(
-            payload.buyerId,
+            targetUserId,
             NotificationType.OFFER_COUNTERED,
             'Counter Offer Received',
-            `Seller made a counter offer of ฿${Number(payload.counterPrice).toLocaleString()}. Check your offers to respond.`,
+            message,
             { offerId: payload.offerId }
         );
     }

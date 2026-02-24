@@ -47,6 +47,7 @@ interface BankAccount {
     id: string;
     name: string;
     code: string;
+    logoUrl?: string;
   };
 }
 
@@ -273,8 +274,12 @@ export default function BankSettingsPage() {
               {bankAccounts.map((account) => (
                 <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50">
                   <div className="flex items-center gap-4">
-                    <div className="p-2 bg-indigo-50 rounded-lg">
-                      <Building2 className="text-indigo-600" size={24} />
+                    <div className="p-2 bg-indigo-50 rounded-lg flex items-center justify-center overflow-hidden h-12 w-12 shrink-0">
+                      {account.bank.logoUrl ? (
+                        <img src={api.getImageUrl(account.bank.logoUrl)} alt={account.bank.name} className="h-full w-full object-contain" />
+                      ) : (
+                        <Building2 className="text-indigo-600" size={24} />
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">

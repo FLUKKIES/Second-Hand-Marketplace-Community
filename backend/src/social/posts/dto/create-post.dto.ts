@@ -8,6 +8,10 @@ export enum PostType {
 
 // DTO สำหรับสินค้า (เชื่อมกับ Table Product)
 export class CreateProductDto {
+    @IsOptional()
+    @IsString()
+    id?: string;
+
     @IsString()
     name: string;
 

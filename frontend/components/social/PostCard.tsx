@@ -311,7 +311,7 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
                     />
                   )}
                   <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-px rounded-full font-bold backdrop-blur-sm">
-                    {product._count?.offers ? `Wait ${product._count.offers}` : `Stock ${product.stock}`}
+                    {product._count?.offers ? `Wait ${product._count.offers}` : product.stock > 0 ? "Available" : "Sold out"}
                   </div>
                 </div>
                 <div className="flex-1 min-w-0 py-1">

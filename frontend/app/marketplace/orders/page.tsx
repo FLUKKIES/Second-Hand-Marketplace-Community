@@ -65,7 +65,7 @@ function OrdersContent() {
   };
 
   // Helper functions
-  const getActive = (orders: Order[]) => orders.filter((o) => ["TO_PAY", "TO_SHIP", "TO_RECEIVE"].includes(o.status));
+  const getActive = (orders: Order[]) => orders.filter((o) => ["TO_VERIFY", "TO_SHIP", "TO_RECEIVE"].includes(o.status));
   const getCompleted = (orders: Order[]) => orders.filter((o) => o.status === "COMPLETED");
   const getCancelled = (orders: Order[]) => orders.filter((o) => ["CANCELLED", "REFUNDED", "RETURNED"].includes(o.status));
 

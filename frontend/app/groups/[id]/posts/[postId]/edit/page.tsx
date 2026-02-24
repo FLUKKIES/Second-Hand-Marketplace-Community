@@ -3,7 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/common/Navbar";
-import { api } from "@/lib/api";
+import { api, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,15 +19,18 @@ import {
   ImagePlus,
   X,
   ShoppingBag,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface EditPostPageProps {
   params: Promise<{ id: string; postId: string }>;
 }
 
 interface ProductForm {
+  id?: string;
   name: string;
   price: string;
   stock: string;
@@ -35,6 +38,7 @@ interface ProductForm {
   imageFile: File | null;
   imagePreview: string | null;
   imageUrl?: string; // For existing product image
+  isDisabled?: boolean; // True if product has offers/orders
 }
 
 export default function EditPostPage({ params }: EditPostPageProps) {
@@ -110,6 +114,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         ) {
           setProducts(
             post.products.map((p: any) => ({
+              id: p.id,
               name: p.name,
               price: p.price.toString(),
               stock: p.stock.toString(),
@@ -117,6 +122,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
               imageFile: null,
               imagePreview: p.imageUrl ? api.getImageUrl(p.imageUrl) : null,
               imageUrl: p.imageUrl,
+              isDisabled: p.isLocked, // Product with offers/orders cannot be edited
             })),
           );
         } else if (post.type === "SELLING") {
@@ -269,6 +275,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
               imageUrl = await api.uploadImage(p.imageFile, "product");
             }
             return {
+              id: p.id,
               name: p.name,
               price: parseFloat(p.price),
               stock: parseInt(p.stock),
@@ -290,7 +297,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       router.refresh();
     } catch (error) {
       console.error("Failed to update post:", error);
-      toast.error("Failed to update post. Please try again.");
+      toast.error(getErrorMessage(error) || "Failed to update post. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -308,7 +315,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50/30 to-purple-50/30 pb-20">
       <Navbar />
 
-      <main className="container max-w-7xl pt-6 px-4">
+      <main className="pt-6 px-4">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
@@ -458,11 +465,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                    isSelling
-                      ? "bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isSelling
+                    ? "bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-200"
+                    : "bg-gray-100 text-gray-400"
+                    }`}
                 >
                   <ShoppingBag size={24} />
                 </div>
@@ -510,9 +516,19 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                 {products.map((product, idx) => (
                   <Card
                     key={idx}
-                    className="p-6 relative border-2 border-gray-100 shadow-md hover:shadow-xl hover:border-indigo-200 transition-all duration-300 rounded-2xl bg-gradient-to-br from-white to-gray-50/30"
+                    className={cn(
+                      "p-6 relative border-2 shadow-md transition-all duration-300 rounded-2xl overflow-hidden",
+                      product.isDisabled ? "pt-14 border-amber-200 bg-amber-50/50 opacity-100" : "border-gray-100 bg-gradient-to-br from-white to-gray-50/30 hover:shadow-xl hover:border-indigo-200"
+                    )}
                   >
-                    {products.length > 1 && (
+                    {product.isDisabled && (
+                      <div className="absolute top-0 left-0 right-0 bg-amber-100 text-amber-800 px-4 py-2.5 flex items-center gap-2 text-sm font-semibold border-b border-amber-200 shadow-sm">
+                        <Lock size={16} className="shrink-0" />
+                        <span>Cannot edit: This product already has an active offer or order.</span>
+                      </div>
+                    )}
+
+                    {!product.isDisabled && products.length > 1 && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -530,11 +546,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                           Product Image
                         </Label>
                         <label
-                          className={`w-full sm:w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden ${
-                            product.imagePreview
-                              ? "border-transparent shadow-md"
-                              : "border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/50"
-                          }`}
+                          className={`w-full sm:w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden ${product.imagePreview
+                            ? "border-transparent shadow-md"
+                            : "border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/50"
+                            }`}
                         >
                           {product.imagePreview ? (
                             <div className="relative w-full h-full group">
@@ -543,11 +558,13 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                                 alt="Product"
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-white text-sm font-semibold bg-black/30 px-3 py-1.5 rounded-lg">
-                                  Change Photo
-                                </span>
-                              </div>
+                              {!product.isDisabled && (
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="text-white text-sm font-semibold bg-black/30 px-3 py-1.5 rounded-lg">
+                                    Change Photo
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="text-center">
@@ -566,6 +583,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                             type="file"
                             accept="image/*"
                             className="hidden"
+                            disabled={product.isDisabled}
                             onChange={(e) => handleProductImageChange(idx, e)}
                           />
                         </label>
@@ -584,7 +602,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                             onChange={(e) =>
                               updateProduct(idx, "name", e.target.value)
                             }
-                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200"
+                            disabled={product.isDisabled}
+                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200 disabled:opacity-75 disabled:cursor-not-allowed"
                           />
                         </div>
                         <div className="space-y-2">
@@ -599,7 +618,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                             onChange={(e) =>
                               updateProduct(idx, "price", e.target.value)
                             }
-                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200"
+                            disabled={product.isDisabled}
+                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200 disabled:opacity-75 disabled:cursor-not-allowed"
                           />
                         </div>
                         <div className="space-y-2">
@@ -612,7 +632,8 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                             onChange={(e) =>
                               updateProduct(idx, "description", e.target.value)
                             }
-                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200"
+                            disabled={product.isDisabled}
+                            className="rounded-xl border-gray-200 focus:border-indigo-300 focus:ring-indigo-200 disabled:opacity-75 disabled:cursor-not-allowed"
                           />
                         </div>
                       </div>

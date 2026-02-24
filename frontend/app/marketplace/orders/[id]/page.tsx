@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PaymentDialog } from "@/components/marketplace/PaymentDialog";
 import { ShippingDialog } from "@/components/marketplace/ShippingDialog";
 import { ReviewDialog } from "@/components/marketplace/ReviewDialog";
 import { Button } from "@/components/ui/button";
@@ -33,9 +32,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     const { user } = useAuth();
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isShippingOpen, setIsShippingOpen] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
+    const [pendingUpdate, setPendingUpdate] = useState(false);
 
     const fetchOrder = async () => {
         try {
@@ -58,7 +57,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "TO_PAY": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+            case "TO_VERIFY": return "bg-yellow-100 text-yellow-800 border-yellow-200";
             case "TO_SHIP": return "bg-blue-100 text-blue-800 border-blue-200";
             case "TO_RECEIVE": return "bg-purple-100 text-purple-800 border-purple-200";
             case "COMPLETED": return "bg-green-100 text-green-800 border-green-200";
@@ -134,11 +133,41 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                     Review Seller
                                 </Button>
                             )}
-                            {isBuyer && order.status === "TO_PAY" && (
-                                <Button onClick={() => setIsPaymentOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                                    <UploadCloud className="w-4 h-4 mr-2" />
-                                    Upload Slip
-                                </Button>
+                            {/* Seller Actions: Verify Payment */}
+                            {!isBuyer && order.status === "TO_VERIFY" && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                            <CheckCircle className="w-4 h-4 mr-2" />
+                                            Verify Payment
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Verify Payment Slip</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Are you sure you want to verify this payment? Please ensure you have checked your bank account and confirmed that the transferred amount matches the order total.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                onClick={async () => {
+                                                    try {
+                                                        await api.patch(`/orders/${order.id}/verify`, {});
+                                                        toast.success("Payment verified! Order is now TO_SHIP.");
+                                                        fetchOrder();
+                                                    } catch (error) {
+                                                        toast.error(getErrorMessage(error));
+                                                    }
+                                                }}
+                                            >
+                                                Yes, Verify Payment
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
 
                             {/* Buyer Actions: Mark as Received */}
@@ -165,7 +194,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                                     try {
                                                         await api.patch(`/orders/${order.id}/receive`, {});
                                                         toast.success("Order marked as received!");
-                                                        fetchOrder();
+                                                        setPendingUpdate(true);
+                                                        setIsReviewOpen(true);
                                                     } catch (error) {
                                                         toast.error(getErrorMessage(error));
                                                     }
@@ -315,7 +345,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                             <div className="mt-4 pt-4 border-t border-gray-50">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <p className="text-xs font-medium text-gray-500">Payment Slip</p>
-                                                    {['TO_SHIP', 'TO_RECEIVE', 'COMPLETED'].includes(order.status) && (
+                                                    {['TO_VERIFY', 'TO_SHIP', 'TO_RECEIVE', 'COMPLETED'].includes(order.status) && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -348,15 +378,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </main>
 
             {order && (
-                <PaymentDialog
-                    open={isPaymentOpen}
-                    onOpenChange={setIsPaymentOpen}
-                    order={order}
-                    onSuccess={fetchOrder}
-                />
-            )}
-
-            {order && (
                 <ShippingDialog
                     open={isShippingOpen}
                     onOpenChange={setIsShippingOpen}
@@ -368,9 +389,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {order && (
                 <ReviewDialog
                     open={isReviewOpen}
-                    onOpenChange={setIsReviewOpen}
+                    onOpenChange={(open) => {
+                        setIsReviewOpen(open);
+                        if (!open && pendingUpdate) {
+                            fetchOrder();
+                            setPendingUpdate(false);
+                        }
+                    }}
                     order={order}
-                    onSuccess={fetchOrder}
+                    onSuccess={() => {
+                        if (!pendingUpdate) fetchOrder();
+                    }}
                 />
             )}
         </div>

@@ -47,12 +47,6 @@ export function ProductSection({
 
   const selectedProduct =
     post.products.find((p) => p.id === selectedProductId) || post.products[0];
-  const stockLevel =
-    selectedProduct.stock <= 3
-      ? "low"
-      : selectedProduct.stock <= 10
-        ? "medium"
-        : "high";
 
   // Safety check if no product is found (shouldn't happen if post.products > 0)
   if (!selectedProduct) return null;
@@ -177,26 +171,28 @@ export function ProductSection({
           <Package
             className={cn(
               "w-4 h-4",
-              stockLevel === "low"
-                ? "text-red-600"
-                : stockLevel === "medium"
-                  ? "text-orange-600"
-                  : "text-green-600",
+              selectedProduct._count?.offers
+                ? "text-orange-600"
+                : selectedProduct.stock > 0
+                  ? "text-green-600"
+                  : "text-red-600"
             )}
           />
           <span
             className={cn(
               "text-sm font-medium",
-              stockLevel === "low"
-                ? "text-red-600"
-                : stockLevel === "medium"
-                  ? "text-orange-600"
-                  : "text-green-600",
+              selectedProduct._count?.offers
+                ? "text-orange-600"
+                : selectedProduct.stock > 0
+                  ? "text-green-600"
+                  : "text-red-600"
             )}
           >
-            {selectedProduct.stock > 0
-              ? `${selectedProduct.stock} in stock`
-              : "Out of stock"}
+            {selectedProduct._count?.offers
+              ? `Wait ${selectedProduct._count.offers}`
+              : selectedProduct.stock > 0
+                ? "Available"
+                : "Sold out"}
           </span>
         </div>
 
@@ -230,11 +226,7 @@ export function ProductSection({
           {selectedProduct.description || "No description available."}
         </p>
 
-        {selectedProduct.stock <= 0 && (
-          <div className="mb-4 text-center p-2.5 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive font-medium text-sm flex items-center justify-center gap-2">
-            <X className="w-4 h-4" /> Out of Stock
-          </div>
-        )}
+
 
         {/* Offer Status Check */}
         {(() => {

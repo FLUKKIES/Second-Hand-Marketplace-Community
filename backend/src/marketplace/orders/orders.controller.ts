@@ -39,14 +39,13 @@ export class OrdersController {
         return this.ordersService.getOrderById(userId, orderId);
     }
 
-    // 1. ผู้ซื้อแจ้งโอนเงิน
-    @Patch(':id/pay') // PATCH /orders/uuid/pay
-    confirmPayment(
+    // 1. ผู้ขายตรวจสอบสลิปและยืนยัน
+    @Patch(':id/verify') // PATCH /orders/uuid/verify
+    verifyPayment(
         @Param('id') orderId: string,
-        @GetUser('userId') userId: string,
-        @Body() dto: ConfirmPaymentDto
+        @GetUser('userId') userId: string
     ) {
-        return this.ordersService.confirmPayment(userId, orderId, dto);
+        return this.ordersService.verifyPayment(userId, orderId);
     }
 
     // 2. ผู้ขายแจ้งส่งของ

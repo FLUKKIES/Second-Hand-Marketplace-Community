@@ -8,7 +8,13 @@ export class BankAccountsService {
   constructor(private prisma: PrismaService) { }
 
   async create(userId: string, dto: CreateBankAccountDto) {
-    if (dto.isDefault) {
+    const existingAccountsCount = await this.prisma.bankAccount.count({
+      where: { userId },
+    });
+
+    if (existingAccountsCount === 0) {
+      dto.isDefault = true;
+    } else if (dto.isDefault) {
       await this.prisma.bankAccount.updateMany({
         where: { userId },
         data: { isDefault: false },
@@ -51,6 +57,24 @@ export class BankAccountsService {
       where: { id },
       data: dto,
     });
+  }
+
+  async findDefaultByUser(userId: string) {
+    const account = await this.prisma.bankAccount.findFirst({
+      where: { userId, isDefault: true },
+      include: { bank: true }
+    });
+    if (!account) {
+      const anyAccount = await this.prisma.bankAccount.findFirst({
+        where: { userId },
+        include: { bank: true }
+      });
+      if (!anyAccount) {
+        throw new NotFoundException('User has no bank accounts set up yet');
+      }
+      return anyAccount;
+    }
+    return account;
   }
 
   async remove(userId: string, id: string) {

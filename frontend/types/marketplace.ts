@@ -3,7 +3,7 @@ export interface Order {
     buyerId: string;
     sellerId: string;
     totalPrice: number;
-    status: "TO_PAY" | "TO_SHIP" | "TO_RECEIVE" | "COMPLETED" | "CANCELLED";
+    status: "TO_VERIFY" | "TO_SHIP" | "TO_RECEIVE" | "COMPLETED" | "CANCELLED";
     items: OrderItem[];
     buyer?: {
         id: string;
@@ -83,4 +83,18 @@ export interface Offer {
         username: string;
         avatarUrl: string | null;
     };
+}
+
+export interface Address {
+    id: string;
+    userId: string;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    subDistrict: string;
+    district: string;
+    province: string;
+    postalCode: string;
+    phoneNumber?: string | null;
+    isDefault: boolean;
 }

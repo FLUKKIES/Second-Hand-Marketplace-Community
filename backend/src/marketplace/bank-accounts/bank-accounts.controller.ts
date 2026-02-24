@@ -29,4 +29,9 @@ export class BankAccountsController {
   remove(@GetUser('userId') userId: string, @Param('id') id: string) {
     return this.bankAccountsService.remove(userId, id);
   }
+
+  @Get('user/:userId')
+  findUserDefault(@Param('userId') targetUserId: string) {
+    return this.bankAccountsService.findDefaultByUser(targetUserId);
+  }
 }

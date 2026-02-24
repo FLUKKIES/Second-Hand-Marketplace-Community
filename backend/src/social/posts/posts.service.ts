@@ -231,8 +231,30 @@ export class PostsService {
         if (!post) {
             throw new NotFoundException('Post not found');
         }
+
+        // Add isLocked flag to products
+        const lockedProducts = await this.prisma.product.findMany({
+            where: {
+                postId: id,
+                OR: [
+                    { orderItems: { some: {} } },
+                    { offers: { some: {} } }
+                ]
+            },
+            select: { id: true }
+        });
+        const lockedProductIds = new Set(lockedProducts.map(p => p.id));
+
+        const postWithLockData = {
+            ...post,
+            products: post.products.map(p => ({
+                ...p,
+                isLocked: lockedProductIds.has(p.id)
+            }))
+        };
+
         // Allow deleted posts to be returned (frontend will handle strict display)
-        return post;
+        return postWithLockData;
     }
 
     // 4. ลบโพสต์ (Soft Delete Logic)
@@ -381,36 +403,70 @@ export class PostsService {
         // Products update is tricky with Orders.
 
         // Let's Try "Replace All Products" IF no orders exist.
+        // 3. Products Diff and Update
         if (dto.products && post.type === 'SELLING') {
-            const hasOrders = await this.prisma.orderItem.findFirst({
-                where: { product: { postId } }
+            const lockedProducts = await this.prisma.product.findMany({
+                where: {
+                    postId,
+                    OR: [
+                        { orderItems: { some: {} } },
+                        { offers: { some: {} } }
+                    ]
+                }
             });
 
-            if (!hasOrders) {
-                // Safe to replace
-                // 1. Delete old
-                const oldProducts = post.products;
-                if (oldProducts.length > 0) {
-                    await this.prisma.product.deleteMany({ where: { postId } });
-                    oldProducts.forEach(p => {
-                        if (p.imageUrl) this.uploadService.deleteFile(p.imageUrl);
+            const lockedProductIds = new Set(lockedProducts.map(p => p.id));
+            const existingProductIds = new Set(post.products.map(p => p.id));
+
+            const incomingProducts = dto.products as any[];
+            const incomingProductIds = new Set(incomingProducts.map(p => p.id).filter(id => id));
+
+            // 1. Check Deleted Products (in existing but not in incoming)
+            const deletedProductIds = [...existingProductIds].filter(id => !incomingProductIds.has(id));
+            for (const id of deletedProductIds) {
+                if (lockedProductIds.has(id)) {
+                    throw new BadRequestException('Cannot delete product that already has an offer or order');
+                }
+            }
+
+            // 2. We will silently ignore updates to products in lockedProductIds.
+
+            // 3. Apply changes transactionally
+            await this.prisma.$transaction(async (tx) => {
+                if (deletedProductIds.length > 0) {
+                    await tx.product.deleteMany({
+                        where: { id: { in: deletedProductIds } }
                     });
                 }
 
-                // 2. Create new
-                if (dto.products.length > 0) {
-                    await this.prisma.product.createMany({
-                        data: dto.products.map((p: any) => ({
-                            postId,
-                            name: p.name,
-                            price: p.price,
-                            description: p.description,
-                            stock: p.stock,
-                            imageUrl: p.imageUrl
-                        }))
-                    });
+                for (const p of incomingProducts) {
+                    if (p.id && existingProductIds.has(p.id)) {
+                        if (!lockedProductIds.has(p.id)) {
+                            await tx.product.update({
+                                where: { id: p.id },
+                                data: {
+                                    name: p.name,
+                                    price: p.price,
+                                    stock: p.stock,
+                                    description: p.description,
+                                    imageUrl: p.imageUrl
+                                }
+                            });
+                        }
+                    } else {
+                        await tx.product.create({
+                            data: {
+                                postId,
+                                name: p.name,
+                                price: p.price,
+                                stock: p.stock,
+                                description: p.description,
+                                imageUrl: p.imageUrl
+                            }
+                        });
+                    }
                 }
-            }
+            });
         }
 
         return this.findOne(postId, userId);

@@ -58,19 +58,36 @@ export function OfferCard({
   const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
   const [selectedBankAccountId, setSelectedBankAccountId] =
     useState<string>("");
+  const [timeLeft, setTimeLeft] = useState<string>("");
 
-  const requestCounter = () => {
-    if (isSeller) {
-      const hasAccounts =
-        (userBankAccounts && userBankAccounts.length > 0) ||
-        localBankAccounts.length > 0;
+  useEffect(() => {
+    if (offer.status !== "ACCEPTED" || !offer.expiresAt || offer.orderId) return;
 
-      if (!hasAccounts) {
-        setIsBankDialogOpen(true);
+    const calculateTimeLeft = () => {
+      const difference = new Date(offer.expiresAt!).getTime() - new Date().getTime();
+      if (difference <= 0) {
+        setTimeLeft("Expired");
         return;
       }
-    }
-    setIsCounterDialogOpen(true);
+
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      setTimeLeft(
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      );
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [offer.expiresAt, offer.status, offer.orderId]);
+
+  const requestCounter = () => {
+    checkBankBeforeAction(() => {
+      setIsCounterDialogOpen(true);
+    });
   };
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -129,41 +146,21 @@ export function OfferCard({
     }
   }, [isSeller, userBankAccounts, confirmDialog.open]); // Try fetching when dialog opens too
 
-  const requestAccept = () => {
-    // Validation: Seller must have bank account to accept offer
-    if (isSeller) {
-      // Check both sources
-      const hasAccounts =
-        (userBankAccounts && userBankAccounts.length > 0) ||
-        localBankAccounts.length > 0;
-
-      // If we don't have accounts yet, we might need to wait for fetch?
-      // But if fetch failed or really 0, we show dialog.
-      // We rely on "hasUserBankAccount" prop for the initial check,
-      // OR we just let the dialog open and show "No accounts" state.
-
-      // Actually, if we have 0 accounts, we should probably warn?
-      // But let's assume the UI inside the dialog handles the "0 accounts" case
-      // by disabling the button and showing the message.
-
-      // Note: We modified the UI to show a red box if 0 accounts.
-      if (!hasAccounts) {
-        setIsBankDialogOpen(true);
-        return;
-      }
-
-      // Auto-select logic:
-      if (accountsToUse.length === 1) {
-        setSelectedBankAccountId(accountsToUse[0].id);
-      } else {
-        setSelectedBankAccountId(""); // Clear selection to force choice
-      }
+  const checkBankBeforeAction = (callback: () => void) => {
+    if (isSeller && accountsToUse.length === 0) {
+      setIsBankDialogOpen(true);
+    } else {
+      callback();
     }
+  };
 
-    setConfirmDialog({
-      open: true,
-      action: "ACCEPT",
-      type: canRespondCounter ? "COUNTER" : "OFFER",
+  const requestAccept = () => {
+    checkBankBeforeAction(() => {
+      setConfirmDialog({
+        open: true,
+        action: "ACCEPT",
+        type: canRespondCounter ? "COUNTER" : "OFFER",
+      });
     });
   };
 
@@ -173,9 +170,8 @@ export function OfferCard({
       if (isSeller) {
         await api.patch(`/offers/${offer.id}/respond`, {
           action: "ACCEPT",
-          bankAccountId: selectedBankAccountId || undefined, // Send selected ID
         });
-        toast.success("Offer accepted! Order created.");
+        toast.success("Offer accepted!");
       } else if (canRespondCounter) {
         await api.patch(`/offers/${offer.id}/respond-counter`, {
           action: "ACCEPT",
@@ -457,6 +453,24 @@ export function OfferCard({
             </div>
           </div>
         )}
+
+        {offer.status === "ACCEPTED" && offer.expiresAt && !offer.orderId && timeLeft !== "Expired" && (
+          <div className="px-5 pb-5 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50 py-3 rounded-lg border border-emerald-200 shadow-sm shadow-emerald-100">
+              <span className="animate-pulse text-lg">⏳</span> Checkout Time Left: <span className="font-mono text-lg">{timeLeft}</span>
+            </div>
+            {isBuyer && (
+              <div className="text-xs text-center mt-2 text-gray-500">
+                Complete your checkout in the My Offers tab before time runs out!
+              </div>
+            )}
+            {isSeller && (
+              <div className="text-xs text-center mt-2 text-gray-500">
+                Awaiting buyer's checkout...
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <CounterOfferDialog
@@ -469,29 +483,6 @@ export function OfferCard({
           onUpdate?.();
         }}
       />
-
-      <Dialog open={isBankDialogOpen} onOpenChange={setIsBankDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bank Account Required</DialogTitle>
-            <DialogDescription>
-              Please add a bank account before accepting an order. This is
-              required for buyers to pay you.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsBankDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={() => (window.location.href = "/settings/bank")}>
-              Go to Settings
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={confirmDialog.open}
@@ -532,60 +523,12 @@ export function OfferCard({
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
-                  <span className="text-muted-foreground">Offered Price:</span>
+                  <span className="text-muted-foreground">{offer.counterPrice ? "Countered Price:" : "Offered Price:"}</span>
                   <span className="font-bold text-lg text-primary">
-                    ฿{parseInt(offer.offeredPrice).toLocaleString()}
+                    ฿{parseInt(offer.counterPrice || offer.offeredPrice).toLocaleString()}
                   </span>
                 </div>
               </div>
-
-              {/* Bank Selection */}
-              {accountsToUse && accountsToUse.length > 0 ? (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium block">
-                    Select Receiving Bank Account ({accountsToUse.length}{" "}
-                    available):
-                  </label>
-                  <RadioGroup
-                    value={selectedBankAccountId}
-                    onValueChange={setSelectedBankAccountId}
-                    className="gap-3"
-                  >
-                    {accountsToUse.map((account) => (
-                      <div
-                        key={account.id}
-                        className={cn(
-                          "flex items-center space-x-3 rounded-lg border p-4 transition-all cursor-pointer hover:bg-accent",
-                          selectedBankAccountId === account.id
-                            ? "border-primary ring-1 ring-primary bg-accent"
-                            : "border-border",
-                        )}
-                        onClick={() => setSelectedBankAccountId(account.id)}
-                      >
-                        <RadioGroupItem value={account.id} id={account.id} />
-                        <div className="flex-1 flex justify-between items-center">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">
-                              {account.bank.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {account.accountName}
-                            </span>
-                          </div>
-                          <span className="text-sm font-mono font-medium">
-                            {account.accountNumber}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-              ) : (
-                <div className="p-4 border border-red-200 bg-red-50 text-red-600 rounded-lg text-sm">
-                  Debug: No bank accounts detected (
-                  {userBankAccounts?.length || 0}). Please check your settings.
-                </div>
-              )}
             </div>
           )}
 
@@ -609,13 +552,34 @@ export function OfferCard({
               variant={
                 confirmDialog.action === "REJECT" || confirmDialog.action === "CANCEL" ? "destructive" : "default"
               }
-              disabled={
-                confirmDialog.action === "ACCEPT" &&
-                isSeller &&
-                !selectedBankAccountId
-              }
             >
               Confirm {confirmDialog.action === "ACCEPT" ? "Accept" : confirmDialog.action === "CANCEL" ? "Cancel Order" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBankDialogOpen} onOpenChange={setIsBankDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bank Account Required</DialogTitle>
+            <DialogDescription>
+              You need to add a bank account before you can accept or counter offers. This ensures you can receive payments from buyers.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-500/50 rounded-lg">
+            <p className="text-sm text-orange-800 dark:text-orange-200">
+              Please navigate to Bank Settings to add your receiving account.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBankDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => window.location.href = "/settings/bank"}>
+              Add Bank Account
             </Button>
           </DialogFooter>
         </DialogContent>
