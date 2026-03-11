@@ -33,10 +33,6 @@ export class SearchService {
                         sortBy = interpretation.sortBy;
                     }
 
-                    // Use AI type only if not set
-                    if (!type && interpretation.detectedType && interpretation.detectedType !== 'MIXED') {
-                        type = interpretation.detectedType;
-                    }
                 }
             }
 
@@ -50,13 +46,13 @@ export class SearchService {
             let postFilter = Prisma.sql`p."deletedAt" IS NULL AND p.embedding IS NOT NULL`;
             if (groupId) postFilter = Prisma.sql`${postFilter} AND p."groupId" = ${groupId}`;
             if (categoryId) postFilter = Prisma.sql`${postFilter} AND g."categoryId" = ${categoryId}`;
-            if (type) postFilter = Prisma.sql`${postFilter} AND p."type"::text = ${type}`;
+            if (type && type !== 'ALL') postFilter = Prisma.sql`${postFilter} AND p."type"::text = ${type}`;
 
             // Base Filters for PRODUCTS
             let productFilter = Prisma.sql`p."deletedAt" IS NULL AND pd.embedding IS NOT NULL`;
             if (groupId) productFilter = Prisma.sql`${productFilter} AND p."groupId" = ${groupId}`;
             if (categoryId) productFilter = Prisma.sql`${productFilter} AND g."categoryId" = ${categoryId}`;
-            if (type) productFilter = Prisma.sql`${productFilter} AND p."type"::text = ${type}`;
+            if (type && type !== 'ALL') productFilter = Prisma.sql`${productFilter} AND p."type"::text = ${type}`;
 
             if (minPrice !== undefined) {
                 // Ignore price filter for NORMAL posts if type is specifically NORMAL
@@ -80,11 +76,14 @@ export class SearchService {
                 ratingHaving = Prisma.sql`HAVING COALESCE(AVG(r.rating), 0) >= ${minRating}`;
             }
 
+            const exactKeyword = `%${keyword}%`;
+
             // --- QUERY 1: Search in POSTS ---
             const postResults = await this.prisma.$queryRaw`
                 SELECT 
                     p.id, 
-                    1 - (p.embedding <=> ${vectorString}::vector) as similarity
+                    (1 - (p.embedding <=> ${vectorString}::vector)) +
+                    (CASE WHEN p.content ILIKE ${exactKeyword} THEN 0.5 ELSE 0 END) as similarity
                 FROM posts p
                 LEFT JOIN products pd ON p.id = pd."postId" 
                 LEFT JOIN groups g ON p."groupId" = g.id
@@ -100,7 +99,10 @@ export class SearchService {
             const productResults = await this.prisma.$queryRaw`
                 SELECT 
                     p.id as "postId",
-                    1 - (pd.embedding <=> ${vectorString}::vector) as similarity
+                    (1 - (pd.embedding <=> ${vectorString}::vector)) +
+                    (CASE WHEN pd.name ILIKE ${exactKeyword} THEN 0.6 ELSE 0 END) +
+                    (CASE WHEN pd.description ILIKE ${exactKeyword} THEN 0.3 ELSE 0 END) +
+                    (CASE WHEN p.content ILIKE ${exactKeyword} THEN 0.3 ELSE 0 END) as similarity
                 FROM products pd
                 JOIN posts p ON pd."postId" = p.id
                 LEFT JOIN groups g ON p."groupId" = g.id

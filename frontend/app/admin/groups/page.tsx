@@ -28,6 +28,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -411,6 +412,9 @@ export default function AdminGroupsPage() {
                         <DialogTitle>
                             {editingGroup ? "Edit Group" : "New Group"}
                         </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            {editingGroup ? "Edit the details of the group." : "Fill out the details to create a new group."}
+                        </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-2 gap-6">

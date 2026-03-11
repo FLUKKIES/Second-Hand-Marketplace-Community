@@ -18,6 +18,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -145,6 +146,9 @@ export default function AdminBanksPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingBank ? "Edit Bank" : "Add Bank"}</DialogTitle>
+                        <DialogDescription className="sr-only">
+                            {editingBank ? "Edit the details of the bank." : "Fill out the details to add a new bank."}
+                        </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">

@@ -36,8 +36,8 @@ export function SearchFilters({
             </span>
             <div className="flex p-1 bg-muted/50 rounded-lg">
               <button
-                onClick={() => onFilterChange("type", "")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${!filters.type ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => onFilterChange("type", "ALL")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${!filters.type || filters.type === "ALL" ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
               >
                 All
               </button>
@@ -104,15 +104,15 @@ export function SearchFilters({
             filters.minPrice ||
             filters.maxPrice ||
             (filters.sort && filters.sort !== "LATEST")) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClear}
-              className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs"
-            >
-              Clear Filter
-            </Button>
-          )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClear}
+                className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs"
+              >
+                Clear Filter
+              </Button>
+            )}
         </div>
       </div>
     </div>

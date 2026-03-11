@@ -228,7 +228,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                             </div>
 
                             <div className="px-6 pb-0 relative">
-                                <div className="flex flex-col md:flex-row items-start md:items-end -mt-16 md:-mt-20 gap-6 mb-4">
+                                <div className="flex flex-col md:flex-row items-start md:items-start gap-6 mb-4">
                                     {/* Profile Image with Active Indicator */}
                                     <div className="shrink-0 relative z-10">
                                         <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl border-4 border-card bg-white shadow-md overflow-hidden flex items-center justify-center">
@@ -246,7 +246,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                                         <div className="absolute bottom-0 right-0 w-5 h-5 md:w-6 md:h-6 bg-green-500 rounded-full border-[3px] border-card shadow-sm" />
                                     </div>
 
-                                    <div className="flex-1 pt-2 md:pt-0">
+                                    <div className="flex-1 pt-2 md:pt-6">
                                         <h1 className="text-3xl font-bold text-foreground mb-1">
                                             {group.name}
                                         </h1>
@@ -258,7 +258,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center gap-4 shrink-0 mt-4 md:mt-0">
+                                    <div className="flex items-start gap-4 shrink-0 mt-4 md:mt-6">
                                         {user && (
                                             <Button
                                                 onClick={handleJoinClick}

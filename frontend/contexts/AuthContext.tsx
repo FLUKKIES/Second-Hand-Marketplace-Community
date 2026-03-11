@@ -44,11 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // useEffect(() => {
-    //     if (!loading) return; // Don't fetch if still initial loading
-    //     fetchUser();
-    // }, [fetchUser, loading]);
-
     const login = useCallback(async () => {
         // We fetch the user first to know their role
         try {

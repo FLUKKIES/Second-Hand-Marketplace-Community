@@ -29,13 +29,23 @@ export class PostsService {
             throw new BadRequestException('Group ID is required');
         }
 
+        // Fetch Group and Category context for Embedding
+        const groupDetails = await this.prisma.group.findUnique({
+            where: { id: dto.groupId },
+            include: { category: true }
+        });
+
+        const contextStr = groupDetails
+            ? `[Group: ${groupDetails.name}, Description: ${groupDetails.description || 'None'}, Category: ${groupDetails.category.name}]`
+            : '';
+
         // --- 1. Prepare Embeddings BEFORE Transaction (Avoid Timeout) ---
         let postEmbedding: number[] | null = null;
         let productEmbeddings: Map<number, number[]> = new Map(); // Index -> Embedding
 
         try {
             // A. Post Embedding
-            let textToEmbed = dto.content || '';
+            let textToEmbed = `${contextStr} ${dto.content || ''}`;
             if (dto.products) {
                 textToEmbed += ' ' + dto.products.map(p => `${p.name} ${p.description || ''}`).join(' ');
             }
@@ -46,7 +56,7 @@ export class PostsService {
             // B. Product Embeddings
             if (dto.type === PostType.SELLING && dto.products && dto.products.length > 0) {
                 const embeddingPromises = dto.products.map(async (p, index) => {
-                    const productText = `${p.name} ${p.description || ''}`;
+                    const productText = `${contextStr} ${p.name} ${p.description || ''}`;
                     const emb = await this.ollamaService.generateEmbedding(productText.trim());
                     return { index, emb };
                 });
@@ -332,11 +342,14 @@ export class PostsService {
         if (post.authorId !== userId) throw new ForbiddenException('Not owner');
 
         // Logic for updating
-        // 1. Content
-        if (dto.content !== undefined) {
+        // 1. Content and Meta
+        if (dto.content !== undefined || dto.shippingCost !== undefined) {
             await this.prisma.post.update({
                 where: { id: postId },
-                data: { content: dto.content }
+                data: {
+                    ...(dto.content !== undefined && { content: dto.content }),
+                    ...(dto.shippingCost !== undefined && { shippingCost: dto.shippingCost })
+                }
             });
         }
 
@@ -467,6 +480,41 @@ export class PostsService {
                     }
                 }
             });
+        }
+
+        // --- Update Embeddings ---
+        // Fetch the fresh post to generate accurate embeddings
+        const updatedPost = await this.prisma.post.findUnique({
+            where: { id: postId },
+            include: { group: true, products: true }
+        });
+
+        if (updatedPost) {
+            const contextStr = `[Group: ${updatedPost.group.name}, Description: ${updatedPost.group.description || 'None'}, Category: ${updatedPost.group.categoryId}]`;
+
+            // 1. Update Post Embedding
+            let textToEmbed = `${contextStr} ${updatedPost.content || ''}`;
+            if (updatedPost.products && updatedPost.products.length > 0) {
+                textToEmbed += ' ' + updatedPost.products.map(p => `${p.name} ${p.description || ''}`).join(' ');
+            }
+            const postEmbedding = await this.ollamaService.generateEmbedding(textToEmbed.trim());
+
+            if (postEmbedding) {
+                const vectorString = `[${postEmbedding.join(',')}]`;
+                await this.prisma.$executeRaw`UPDATE posts SET embedding = ${vectorString}::vector WHERE id = ${updatedPost.id}`;
+            }
+
+            // 2. Update Product Embeddings
+            if (updatedPost.products && updatedPost.products.length > 0) {
+                for (const p of updatedPost.products) {
+                    const productText = `${contextStr} ${p.name} ${p.description || ''}`;
+                    const pdEmbedding = await this.ollamaService.generateEmbedding(productText.trim());
+                    if (pdEmbedding) {
+                        const pdVectorStr = `[${pdEmbedding.join(',')}]`;
+                        await this.prisma.$executeRaw`UPDATE products SET embedding = ${pdVectorStr}::vector WHERE id = ${p.id}`;
+                    }
+                }
+            }
         }
 
         return this.findOne(postId, userId);

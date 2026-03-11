@@ -22,7 +22,6 @@ export function usePostDetail({ postId, isModal = false }: UsePostDetailProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
 
-    // Initial product selection effect
     useEffect(() => {
         if (post && post.products && post.products.length > 0) {
             setSelectedProductId(post.products[0].id);

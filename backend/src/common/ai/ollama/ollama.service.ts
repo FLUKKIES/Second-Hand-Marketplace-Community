@@ -54,17 +54,12 @@ export class OllamaService {
             - "PRICE_ASC" if user says "cheap", "budget", "low price".
             - "PRICE_DESC" if user says "expensive", "premium".
             - null otherwise.
-            4. detectedType:
-            - "SELLING" if user wants to buy/shop (e.g., "buy", "price", "second hand", "deal").
-            - "NORMAL" if user wants reviews, opinions, or general talk (e.g., "review", "is it good?", "help").
-            - "MIXED" if unclear.
 
             Output strictly valid JSON only:
             {
                 "keyword": string,
                 "minRating": number | null,
-                "sortBy": "PRICE_ASC" | "PRICE_DESC" | null,
-                "detectedType": "SELLING" | "NORMAL" | "MIXED"
+                "sortBy": "PRICE_ASC" | "PRICE_DESC" | null
             }
         `;
 
@@ -81,10 +76,10 @@ export class OllamaService {
             if (data.response) {
                 return JSON.parse(data.response);
             }
-            return { keyword: query, detectedType: 'MIXED' };
+            return { keyword: query };
         } catch (error) {
             this.logger.warn(`Failed to interpret query: ${error.message}. Falling back to basic search.`);
-            return { keyword: query, detectedType: 'MIXED' };
+            return { keyword: query };
         }
     }
 }

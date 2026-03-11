@@ -238,9 +238,10 @@ export function ProductSection({
           return (
             <div className="space-y-3 relative z-10">
               {isOwnPost ? (
-                <div className="text-center text-xs text-muted-foreground font-medium bg-muted/50 p-3 rounded-xl border border-border/50">
-                  This is your listing
-                </div>
+                // <div className="text-center text-xs text-muted-foreground font-medium bg-muted/50 p-3 rounded-xl border border-border/50">
+                //   This is your post
+                // </div>
+                <></>
               ) : (
                 <>
                   {selectedProduct.stock > 0 &&
@@ -284,7 +285,7 @@ export function ProductSection({
           );
         })()}
 
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
+        {/* <div className="mt-6 pt-6 border-t border-dashed border-border">
           <div className="flex items-center gap-3.5">
             <div className="bg-orange-50 p-2.5 rounded-xl text-orange-600 border border-orange-100 shadow-sm">
               <MapPin size={20} />
@@ -298,7 +299,7 @@ export function ProductSection({
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <ImageViewer

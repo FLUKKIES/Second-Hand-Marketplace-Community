@@ -20,6 +20,7 @@ import {
   X,
   ShoppingBag,
   Lock,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -86,6 +87,9 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     },
   ]);
 
+  // Shipping Cost
+  const [shippingCost, setShippingCost] = useState<string>("0");
+
   useEffect(() => {
     const fetchPost = async () => {
       try {
@@ -100,6 +104,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
 
         setContent(post.content || "");
         setIsSelling(post.type === "SELLING");
+        setShippingCost(post.shippingCost ? post.shippingCost.toString() : "0");
 
         if (post.images && post.images.length > 0) {
           setExistingImages(post.images);
@@ -289,6 +294,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       await api.patch(`/posts/${postId}`, {
         content,
         imageUrls: finalImageUrls, // Send full list to replace old list
+        shippingCost: isSelling ? parseFloat(shippingCost) || 0 : undefined,
         products: isSelling ? productData : undefined,
       });
 
@@ -492,6 +498,38 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           {/* 3. Product Form (Conditional) */}
           {isSelling && (
             <div className="space-y-6 animate-in slide-in-from-top-4 fade-in duration-500">
+              {/* Shipping Cost */}
+              <div className="relative overflow-hidden rounded-2xl border-2 border-gray-100 bg-gradient-to-br from-white to-blue-50/30 p-5">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                    <Truck size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">Shipping Cost</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Set the shipping cost for this post (applies to all products)
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    Shipping Cost (฿)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(e.target.value)}
+                    className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200 max-w-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {parseFloat(shippingCost) === 0 ? "Free Shipping 🎉" : `฿${parseFloat(shippingCost || "0").toLocaleString()} per order`}
+                  </p>
+                </div>
+              </div>
+
               {/* Note: Logic here supports "Replace All Products". So simply editing this list works. */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

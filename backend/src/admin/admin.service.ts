@@ -7,7 +7,9 @@ export class AdminService {
     constructor(private prisma: PrismaService) { }
 
     async getDashboardStats() {
-        const totalUsers = await this.prisma.user.count();
+        const totalUsers = await this.prisma.user.count({
+            where: { role: { not: 'ADMIN' } }
+        });
 
         return {
             totalUsers,

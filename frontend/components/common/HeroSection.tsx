@@ -14,15 +14,15 @@ const ANNOUNCEMENTS = [
     },
     {
         id: 2,
-        title: "Join Premium Groups",
-        description: "Get exclusive access to top-rated seller groups.",
+        title: "Community Driven",
+        description: "Buy and sell with your community.",
         image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1771&q=80",
         color: "from-emerald-500 via-teal-500 to-cyan-500"
     },
     {
         id: 3,
-        title: "Sell Faster with Boost",
-        description: "Promote your listings to reach more buyers instantly.",
+        title: "Safe and Secure",
+        description: "Buy and sell with confidence.",
         image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1932&q=80",
         color: "from-orange-500 via-amber-500 to-yellow-500"
     }

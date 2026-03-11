@@ -45,12 +45,6 @@ services:
         restart: always
         env_file:
             - ./backend/.env.prod
-        environment:
-            # We don't need to repeat vars here if they are in the env_file
-            # unless we need variable substitution from the ROOT .env.prod
-            # But since we put everything in backend/.env.prod, we can simplify given the user request.
-            # However, DATABASE_URL relies on fixed credentials in the file now.
-            PORT: 3001
         depends_on:
             postgres:
                 condition: service_healthy
