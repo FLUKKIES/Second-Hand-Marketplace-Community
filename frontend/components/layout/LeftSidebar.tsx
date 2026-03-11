@@ -38,7 +38,7 @@ export function LeftSidebar() {
     : navItems.filter((item) => ["Feed", "Categories"].includes(item.name));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Mini Profile
       {user ? (
         <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50 flex items-center gap-3 relative overflow-hidden group hover:shadow-md transition-all duration-300">
@@ -82,7 +82,7 @@ export function LeftSidebar() {
       )} */}
 
       {/* Main Navigation */}
-      <nav className="bg-card rounded-2xl p-2 shadow-sm border border-border/50 space-y-1">
+      <nav className="bg-card rounded-xl p-2 shadow-sm border-2 border-border space-y-1">
         {filteredNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -110,7 +110,7 @@ export function LeftSidebar() {
         })}
       </nav>
 
-      <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50">
+      <div className="bg-card rounded-2xl p-4 shadow-sm border-2 border-border">
         <div className="flex flex-col gap-3 text-xs text-muted-foreground te">
           {/* <div className="flex gap-x-3 gap-y-1.5 flex-wrap">
             <Link href="#" className="hover:text-primary transition-colors">

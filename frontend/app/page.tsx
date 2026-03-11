@@ -11,12 +11,12 @@ export default function Home() {
         <div className="flex flex-col h-screen bg-gray-50/50 overflow-hidden">
             <Navbar />
 
-            <main className="flex-1  pt-4 px-2 md:px-2 overflow-hidden">
+            <main className="flex-1 pt-2 px-2 md:px-2 overflow-hidden">
                 {/* Mobile: Hero matches width, Desktop: 3-column layout */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 align-start h-full">
 
                     {/* Left Sidebar (25% ~ 3 cols) - Hidden on mobile */}
-                    <aside className="hidden md:block md:col-span-3 lg:col-span-3 h-full overflow-y-auto pb-20 scrollbar-hide">
+                    <aside className="hidden md:block md:col-span-3 lg:col-span-3 h-full overflow-y-auto pb-2 scrollbar-hide">
                         <LeftSidebar />
                     </aside>
 
