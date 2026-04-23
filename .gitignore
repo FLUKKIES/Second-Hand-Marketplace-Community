@@ -1,0 +1,11 @@
+.agent
+
+# Environment variables - NEVER commit secrets
+.env
+.env.*
+!.env.example
+
+CLOUD_DEPLOYMENT.md
+MOCK.md
+REQUIREMENT.md
+START.md
