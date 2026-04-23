@@ -1,4 +1,4 @@
-# 🛍️ Social Mart — Second Hand Marketplace & Community
+# 🛍️ Group Mart — Second Hand Marketplace & Community
 
 แพลตฟอร์มซื้อขายของมือสองและคอมมูนิตี้ที่รวม Marketplace, Social Interaction และ Real-time Chat ไว้ด้วยกัน
 
