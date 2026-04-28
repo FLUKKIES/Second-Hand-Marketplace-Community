@@ -38,9 +38,13 @@ jobs:
 
     - name: Generate Prisma Client
       run: pnpm run build
+      env:
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
     - name: Run Linter
       run: pnpm run lint
 
     - name: Run Unit Tests with Coverage
       run: pnpm run test:cov
+      env:
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
