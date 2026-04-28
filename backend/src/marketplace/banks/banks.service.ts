@@ -3,31 +3,30 @@ import { PrismaService } from 'src/common/database/prisma/prisma.service';
 
 @Injectable()
 export class BanksService {
-  constructor(private prisma: PrismaService) { }
-
+  constructor(private prisma: PrismaService) {}
 
   findAll() {
     return this.prisma.bank.findMany({
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
   }
 
   create(data: any) {
     return this.prisma.bank.create({
-      data
+      data,
     });
   }
 
   update(id: string, data: any) {
     return this.prisma.bank.update({
       where: { id },
-      data
+      data,
     });
   }
 
   remove(id: string) {
     return this.prisma.bank.delete({
-      where: { id }
+      where: { id },
     });
   }
 }

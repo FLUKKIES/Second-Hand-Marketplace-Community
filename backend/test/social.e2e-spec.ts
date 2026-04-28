@@ -3,7 +3,10 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module'; // Adjust path
 import { RegisterDto } from '../src/common/auth/dto/auth.dto';
-import { CreatePostDto, PostType } from '../src/social/posts/dto/create-post.dto';
+import {
+  CreatePostDto,
+  PostType,
+} from '../src/social/posts/dto/create-post.dto';
 
 import { PrismaService } from '../src/common/database/prisma/prisma.service';
 
@@ -27,10 +30,10 @@ describe('SocialModule (e2e)', () => {
 
     // Setup Group
     const category = await prisma.category.create({
-      data: { name: `Cat ${Date.now()}`, slug: `cat-${Date.now()}` }
+      data: { name: `Cat ${Date.now()}`, slug: `cat-${Date.now()}` },
     });
     const group = await prisma.group.create({
-      data: { name: `Group ${Date.now()}`, categoryId: category.id }
+      data: { name: `Group ${Date.now()}`, categoryId: category.id },
     });
     groupId = group.id;
 
@@ -41,13 +44,13 @@ describe('SocialModule (e2e)', () => {
       username: `social_${unique}`,
       password: 'password123',
       firstName: 'Social',
-      lastName: 'Tester'
+      lastName: 'Tester',
     };
     const res = await request(app.getHttpServer())
       .post('/auth/signup')
       .send(registerDto)
       .expect(201);
-    
+
     // Use the token from signup directly or login
     accessToken = res.body.access_token;
 
@@ -70,7 +73,7 @@ describe('SocialModule (e2e)', () => {
         content: 'Hello World',
         type: PostType.NORMAL,
         imageUrls: ['http://example.com/image.jpg'],
-        groupId: groupId
+        groupId: groupId,
       };
 
       return request(app.getHttpServer())
@@ -92,8 +95,8 @@ describe('SocialModule (e2e)', () => {
         groupId: groupId,
         products: [
           { name: 'Item 1', price: 100, stock: 10, description: 'Desc 1' },
-          { name: 'Item 2', price: 200, stock: 5 }
-        ]
+          { name: 'Item 2', price: 200, stock: 5 },
+        ],
       };
 
       return request(app.getHttpServer())
@@ -145,12 +148,12 @@ describe('SocialModule (e2e)', () => {
           // If we don't pass groupId in search, it searches all?
           // Service: groupId: groupId ? groupId : undefined.
           // So if undefined, it searches all groups?
-          // Service code: groupId: groupId ? groupId : undefined. 
+          // Service code: groupId: groupId ? groupId : undefined.
           // Wait, Prisma "groupId: undefined" means "do not filter by groupId".
           // So yes, it searches all.
           if (res.body.length > 0) {
-             const found = res.body.find(p => p.content.includes('Hello'));
-             if (found) expect(found.content).toContain('Hello');
+            const found = res.body.find((p) => p.content.includes('Hello'));
+            if (found) expect(found.content).toContain('Hello');
           }
         });
     });

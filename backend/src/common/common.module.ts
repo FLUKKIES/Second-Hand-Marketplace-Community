@@ -20,4 +20,4 @@ import { NotificationModule } from './notification/notification.module';
   ],
   exports: [AuthModule, PrismaModule, UploadModule, OllamaModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
 })
-export class CommonModule { }
+export class CommonModule {}

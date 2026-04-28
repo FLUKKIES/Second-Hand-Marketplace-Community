@@ -6,6 +6,6 @@ import { UploadModule } from 'src/common/upload/upload.module';
 @Module({
   imports: [UploadModule],
   controllers: [GroupsController],
-  providers: [GroupsService]
+  providers: [GroupsService],
 })
-export class GroupsModule { }
+export class GroupsModule {}

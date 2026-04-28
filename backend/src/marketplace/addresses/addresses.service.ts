@@ -5,7 +5,7 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 
 @Injectable()
 export class AddressesService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateAddressDto) {
     // If setting as default, unset others?
@@ -33,11 +33,11 @@ export class AddressesService {
 
   async update(userId: string, id: string, dto: UpdateAddressDto) {
     const address = await this.prisma.address.findUnique({
-      where: { id }
-    })
+      where: { id },
+    });
 
     if (!address || address.userId !== userId) {
-      throw new NotFoundException('Address not found')
+      throw new NotFoundException('Address not found');
     }
 
     if (dto.isDefault) {
@@ -49,17 +49,17 @@ export class AddressesService {
 
     return this.prisma.address.update({
       where: { id },
-      data: dto
+      data: dto,
     });
   }
 
   async remove(userId: string, id: string) {
     const address = await this.prisma.address.findUnique({
-      where: { id }
-    })
+      where: { id },
+    });
 
     if (!address || address.userId !== userId) {
-      throw new NotFoundException('Address not found')
+      throw new NotFoundException('Address not found');
     }
 
     return this.prisma.address.delete({

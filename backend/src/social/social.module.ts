@@ -6,19 +6,7 @@ import { PostsModule } from './posts/posts.module';
 import { LikesModule } from './likes/likes.module';
 
 @Module({
-  imports: [
-    ChatModule,
-    CommentsModule,
-    GroupsModule,
-    PostsModule,
-    LikesModule,
-  ],
-  exports: [
-    ChatModule,
-    CommentsModule,
-    GroupsModule,
-    PostsModule,
-    LikesModule,
-  ],
+  imports: [ChatModule, CommentsModule, GroupsModule, PostsModule, LikesModule],
+  exports: [ChatModule, CommentsModule, GroupsModule, PostsModule, LikesModule],
 })
-export class SocialModule { }
+export class SocialModule {}

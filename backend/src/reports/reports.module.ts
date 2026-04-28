@@ -4,8 +4,8 @@ import { ReportsController } from './reports.controller';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-    imports: [UsersModule],
-    controllers: [ReportsController],
-    providers: [ReportsService],
+  imports: [UsersModule],
+  controllers: [ReportsController],
+  providers: [ReportsService],
 })
-export class ReportsModule { }
+export class ReportsModule {}

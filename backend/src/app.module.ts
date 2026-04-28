@@ -12,25 +12,25 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AdminModule } from './admin/admin.module';
 
 @Module({
-    imports: [
-        EventEmitterModule.forRoot(),
-        ConfigModule.forRoot({
-            isGlobal: true
-        }),
-        ServeStaticModule.forRoot({
-            rootPath: join(process.cwd(), '.', 'public'),
-            serveRoot: '/',
-            serveStaticOptions: {
-                index: false,
-            }
-        }),
-        UsersModule,
-        CommonModule,
-        MarketplaceModule,
-        SocialModule,
-        ReportsModule,
-        AdminModule,
-        ScheduleModule.forRoot(),
-    ],
+  imports: [
+    EventEmitterModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), '.', 'public'),
+      serveRoot: '/',
+      serveStaticOptions: {
+        index: false,
+      },
+    }),
+    UsersModule,
+    CommonModule,
+    MarketplaceModule,
+    SocialModule,
+    ReportsModule,
+    AdminModule,
+    ScheduleModule.forRoot(),
+  ],
 })
-export class AppModule { }
+export class AppModule {}
