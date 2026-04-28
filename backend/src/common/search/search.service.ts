@@ -96,7 +96,7 @@ export class SearchService {
       const exactKeyword = `%${keyword}%`;
 
       // --- QUERY 1: Search in POSTS ---
-      const postResults = await this.prisma.$queryRaw`
+      const postResults = await this.prisma.$queryRaw<any[]>`
                 SELECT 
                     p.id, 
                     (1 - (p.embedding <=> ${vectorString}::vector)) +
@@ -113,7 +113,7 @@ export class SearchService {
             `;
 
       // --- QUERY 2: Search in PRODUCTS ---
-      const productResults = await this.prisma.$queryRaw`
+      const productResults = await this.prisma.$queryRaw<any[]>`
                 SELECT 
                     p.id as "postId",
                     (1 - (pd.embedding <=> ${vectorString}::vector)) +
