@@ -5,7 +5,7 @@ import { PrismaService } from 'src/common/database/prisma/prisma.service';
 
 @Injectable()
 export class BankAccountsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateBankAccountDto) {
     const existingAccountsCount = await this.prisma.bankAccount.count({
@@ -62,12 +62,12 @@ export class BankAccountsService {
   async findDefaultByUser(userId: string) {
     const account = await this.prisma.bankAccount.findFirst({
       where: { userId, isDefault: true },
-      include: { bank: true }
+      include: { bank: true },
     });
     if (!account) {
       const anyAccount = await this.prisma.bankAccount.findFirst({
         where: { userId },
-        include: { bank: true }
+        include: { bank: true },
       });
       if (!anyAccount) {
         throw new NotFoundException('User has no bank accounts set up yet');
@@ -79,11 +79,11 @@ export class BankAccountsService {
 
   async remove(userId: string, id: string) {
     const account = await this.prisma.bankAccount.findUnique({
-      where: { id }
-    })
+      where: { id },
+    });
 
     if (!account || account.userId !== userId) {
-      throw new NotFoundException('Account not found')
+      throw new NotFoundException('Account not found');
     }
 
     return this.prisma.bankAccount.delete({

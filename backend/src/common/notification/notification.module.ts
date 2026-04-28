@@ -8,12 +8,12 @@ import { NotificationController } from './notification.controller';
 
 @Global() // Make it global so we can just inject NotificationService/EventEmitter anywhere
 @Module({
-    imports: [
-        PrismaModule,
-        JwtModule.register({}), // Just for using JwtService to verify token
-    ],
-    controllers: [NotificationController],
-    providers: [NotificationService, NotificationGateway],
-    exports: [NotificationService],
+  imports: [
+    PrismaModule,
+    JwtModule.register({}), // Just for using JwtService to verify token
+  ],
+  controllers: [NotificationController],
+  providers: [NotificationService, NotificationGateway],
+  exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

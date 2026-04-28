@@ -5,9 +5,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { ChatController } from './chat.controller';
 
 @Module({
-    imports: [JwtModule],
-    providers: [ChatGateway, ChatService],
-    controllers: [ChatController],
-    exports: [ChatService]
+  imports: [JwtModule],
+  providers: [ChatGateway, ChatService],
+  controllers: [ChatController],
+  exports: [ChatService],
 })
-export class ChatModule { }
+export class ChatModule {}

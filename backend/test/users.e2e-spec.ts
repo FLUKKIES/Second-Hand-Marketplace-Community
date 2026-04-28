@@ -26,14 +26,14 @@ describe('UsersController (e2e)', () => {
       username: username,
       password: 'password123',
       firstName: 'Test',
-      lastName: 'User'
+      lastName: 'User',
     };
 
     const res = await request(app.getHttpServer())
       .post('/auth/signup')
       .send(registerDto)
       .expect(201);
-    
+
     // Auth returns access_token, not user object
     accessToken = res.body.access_token;
 
@@ -42,7 +42,7 @@ describe('UsersController (e2e)', () => {
       .get('/users/me')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
-    
+
     userId = profileRes.body.id;
   });
 
@@ -63,9 +63,7 @@ describe('UsersController (e2e)', () => {
     });
 
     it('should fail without token', () => {
-      return request(app.getHttpServer())
-        .get('/users/me')
-        .expect(401);
+      return request(app.getHttpServer()).get('/users/me').expect(401);
     });
   });
 
@@ -73,7 +71,7 @@ describe('UsersController (e2e)', () => {
     it('should update user profile', () => {
       const updateDto: UpdateUserDto = {
         firstName: 'UpdatedName',
-        bio: 'New bio'
+        bio: 'New bio',
       };
 
       return request(app.getHttpServer())

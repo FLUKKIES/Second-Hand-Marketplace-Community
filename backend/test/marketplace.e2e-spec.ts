@@ -23,14 +23,14 @@ describe('MarketplaceModule (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe());
     await app.init();
-    
+
     prisma = app.get(PrismaService);
-    
+
     const category = await prisma.category.create({
-      data: { name: `MktCat ${Date.now()}`, slug: `mkt-cat-${Date.now()}` }
+      data: { name: `MktCat ${Date.now()}`, slug: `mkt-cat-${Date.now()}` },
     });
     const group = await prisma.group.create({
-      data: { name: `MktGroup ${Date.now()}`, categoryId: category.id }
+      data: { name: `MktGroup ${Date.now()}`, categoryId: category.id },
     });
     groupId = group.id;
 
@@ -43,12 +43,12 @@ describe('MarketplaceModule (e2e)', () => {
         username: `seller_${sellerUnique}`,
         password: 'password123',
         firstName: 'Seller',
-        lastName: 'One'
+        lastName: 'One',
       })
       .expect(201);
-    
+
     sellerToken = sellerRes.body.access_token;
-    
+
     // Get Seller ID
     const sellerProfile = await request(app.getHttpServer())
       .get('/users/me')
@@ -65,10 +65,10 @@ describe('MarketplaceModule (e2e)', () => {
         username: `buyer_${buyerUnique}`,
         password: 'password123',
         firstName: 'Buyer',
-        lastName: 'Two'
+        lastName: 'Two',
       })
       .expect(201);
-    
+
     buyerToken = buyerRes.body.access_token;
 
     // Get Buyer ID
@@ -87,14 +87,22 @@ describe('MarketplaceModule (e2e)', () => {
         type: 'SELLING',
         groupId: groupId,
         products: [
-          { name: 'Test Product', price: 500, stock: 10, description: 'Good condition' }
-        ]
+          {
+            name: 'Test Product',
+            price: 500,
+            stock: 10,
+            description: 'Good condition',
+          },
+        ],
       });
 
     if (productPostRes.status !== 201) {
-      console.error('Create Post Failed:', JSON.stringify(productPostRes.body, null, 2));
+      console.error(
+        'Create Post Failed:',
+        JSON.stringify(productPostRes.body, null, 2),
+      );
     }
-    
+
     // Assuming the API returns the created products in the response
     // If details are in post.products array
     productId = productPostRes.body.products[0].id;
@@ -110,10 +118,8 @@ describe('MarketplaceModule (e2e)', () => {
         .post('/orders/create')
         .set('Authorization', `Bearer ${buyerToken}`)
         .send({
-          items: [
-            { productId: productId, quantity: 1 }
-          ],
-          shippingAddress: '123 Test St, Bangkok'
+          items: [{ productId: productId, quantity: 1 }],
+          shippingAddress: '123 Test St, Bangkok',
         })
         .expect(201)
         .then((res) => {
