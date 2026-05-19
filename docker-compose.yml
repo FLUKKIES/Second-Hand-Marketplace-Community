@@ -75,10 +75,8 @@ services:
         volumes:
             - ./infra/gcp/nginx.gcp.conf:/etc/nginx/nginx.conf:ro
             - uploads_data:/app/public/uploads:ro
-            - /etc/nginx/ssl:/etc/nginx/ssl:ro
         ports:
             - "80:80"
-            - "443:443"
         depends_on:
             - frontend
             - backend
