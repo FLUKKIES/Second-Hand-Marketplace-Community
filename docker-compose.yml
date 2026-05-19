@@ -41,6 +41,7 @@ services:
     # Usage: docker compose --profile prod up -d
     backend:
         profiles: [prod]
+        image: flukkyy/group-mart-backend:latest
         build:
             context: ./backend
             dockerfile: Dockerfile
@@ -55,6 +56,7 @@ services:
 
     frontend:
         profiles: [prod]
+        image: flukkyy/group-mart-frontend:latest
         build:
             context: ./frontend
             dockerfile: Dockerfile

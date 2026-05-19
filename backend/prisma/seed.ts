@@ -1,20 +1,11 @@
 import * as argon2 from 'argon2'
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
 import {
-    OrderStatus,
-    PostType,
-    Prisma,
     PrismaClient,
     Role,
-    OfferStatus
 } from '@prisma/client'
 
 
-const connectionString = `${process.env.DATABASE_URL}`
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const prisma = new PrismaClient()
 
 // Helper for Embedding
 
