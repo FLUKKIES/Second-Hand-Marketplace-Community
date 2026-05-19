@@ -13,9 +13,10 @@
 - **Storage**: 50GB+ (SSD) สำหรับ Image ของ OS, Docker Images, Database, AI Models (~8GB) และไฟล์รูปภาพของ User
 - **OS**: Ubuntu 22.04 LTS หรือ 24.04 LTS
 
-### 1.2 โดเมนเนม (Domain Name)
-- จดโดเมนเนม (เช่น `groupmart.com`)
-- ตั้งค่า DNS Record (A Record) ชี้มาที่ Public IP ของ Cloud Server
+### 1.2 โดเมนเนม (Domain Name) และ DNS
+- **จดโดเมนเนม:** แนะนำให้ใช้ **Namecheap** ในการจดโดเมนเนม เนื่องจากราคาถูกและจัดการง่าย (เช่น `groupmart.com`)
+- **จัดการ DNS และ Security:** แนะนำให้ผูกโดเมนเข้ากับ **Cloudflare** (เปลี่ยน Nameserver ใน Namecheap ให้ชี้มาที่ Cloudflare)
+- ตั้งค่า DNS Record (A Record) ใน Cloudflare ให้ชี้มาที่ Public IP ของ GCP Compute Engine (เปิดแถบส้ม "Proxied" เพื่อใช้ Free SSL และ DDoS Protection)
 
 ---
 
@@ -118,38 +119,46 @@ docker compose -f docker-compose.prod.yml logs -f
 
 ---
 
-## 5. การตั้งค่า SSL (HTTPS) สำหรับ Production ของจริง
+## 5. การตั้งค่า SSL และ Security (GCP + Cloudflare)
 
-เมื่อเลิกใช้ Ngrok และมี Domain จริง (เช่น `groupmart.com` ชี้มาที่ IP Server) ให้ปรับแต่งตามนี้:
+เมื่อเราใช้ **Google Cloud Platform (GCP)** ร่วมกับ **Cloudflare** กระบวนการทำ SSL และ Security จะง่ายและปลอดภัยมากยิ่งขึ้น
 
-### 5.1 แก้ไข `nginx.prod.conf`
-เพิ่ม/แก้ไข Nginx ให้รองรับชื่อโดเมน:
+### 5.1 ตั้งค่า GCP Firewall (VPC Network)
+ใน Console ของ GCP > VPC Network > Firewall:
+1. สร้างกฏ (Rule) อนุญาต HTTP (Port 80) และ HTTPS (Port 443)
+2. (Optional) เพื่อความปลอดภัยสูงสุด ให้อนุญาตเฉพาะ IP ของ Cloudflare เท่านั้นที่เข้ามายัง Port 80/443 ได้
+
+### 5.2 การจัดการ SSL ผ่าน Cloudflare (วิธีที่แนะนำ)
+เราไม่จำเป็นต้องติดตั้ง Certbot บนเซิร์ฟเวอร์ให้ยุ่งยาก เพราะ Cloudflare มีระบบ SSL/TLS ให้ฟรี:
+1. เข้าไปที่ Dashboard ของ Cloudflare > เมนู **SSL/TLS**
+2. เลือกโหมด **Flexible** (Cloudflare จะเชื่อมต่อกับผู้ใช้ด้วย HTTPS แต่เชื่อมต่อกับเซิร์ฟเวอร์ GCP ของเราด้วย HTTP พอร์ต 80 ซึ่ง Nginx ของเรารองรับอยู่แล้ว)
+3. หรือเลือกโหมด **Full (Strict)** (แนะนำที่สุดสำหรับ Production) โดยคุณต้องสร้าง Origin Certificate จาก Cloudflare นำไฟล์ `.pem` และ `.key` มาใส่ในเซิร์ฟเวอร์ GCP และแก้ `nginx.prod.conf` ให้ Nginx เปิดพอร์ต 443 อ่านไฟล์ Certificate เหล่านี้
+
+### 5.3 อัปเดต `nginx.prod.conf` สำหรับโดเมนจริง
+เปลี่ยนให้ Nginx รับค่าจากโดเมนที่เราจดไว้ (สมมติว่าเป็นโหมด Flexible SSL):
+
 ```nginx
 server {
     listen 80;
     server_name groupmart.com www.groupmart.com;
     client_max_body_size 50M;
 
-    # (การตั้งค่า Location อื่นๆ คงเดิมตามที่มีอยู่)
+    # Cloudflare Proxy Headers
+    proxy_set_header Host $host;
+    proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # ... (Location blocks remain the same)
 }
 ```
 
-### 5.2 ติดตั้ง Certbot เพื่อขอ SSL ฟรี (Let's Encrypt)
-คุณสามารถติดตั้ง Certbot ไว้ที่ระดับ OS เพื่อให้มันสร้าง SSL Certificate และจัดการ Nginx ทะลุ Container เข้าไป หรือ **วิธีที่นิยมสุดและง่ายกว่าคือ**: เอา Nginx ขึ้นมาติดตั้งบน **Host OS** เครื่องหลัก แล้วให้มันชี้ Proxy เข้าไปยังพอร์ตต่างๆ ของ Docker (เช่น 3000 สำหรับ Next, 3001 สำหรับ Nest)
-
-**วิธีทำ (แบบ Nginx บน Host OS):**
-1. ลบ Service `nginx` และ `ngrok` ออกจาก `docker-compose.prod.yml`
-2. Expose Port ของ Frontend(3000), Backend(3001) และ pgAdmin ให้ผูกกับ Localhost ของพับลิคเซิร์ฟเวอร์
-3. ติดตั้ง Nginx และ Certbot บน Host:
-   ```bash
-   sudo apt install nginx certbot python3-certbot-nginx
-   ```
-4. เอาเนื้อหาจาก `nginx.prod.conf` ไปปรับใส่ไว้ใน `/etc/nginx/sites-available/groupmart`
-5. รันคำสั่งขอ SSL:
-   ```bash
-   sudo certbot --nginx -d groupmart.com -d www.groupmart.com
-   ```
-   (Certbot จะเพิ่มตั้งค่า HTTPS / พอร์ต 443 ให้อัตโนมัติ)
+### 5.4 การเชื่อมต่อ CI/CD (GitHub Actions) สู่ GCP
+ในไฟล์ `.github/workflows/cd-production.yml` ที่สร้างไว้แล้ว คุณต้องไปที่ GitHub Repo > Settings > Secrets and variables > Actions แล้วเพิ่มค่าต่อไปนี้:
+- `GCP_HOST_IP`: Public IP ของ Compute Engine
+- `GCP_SSH_USERNAME`: ชื่อ User ที่คุณใช้รันระบบ (เช่น `ubuntu`)
+- `GCP_SSH_PRIVATE_KEY`: Private Key (`~/.ssh/id_rsa`) ที่จับคู่กับ Public Key ใน GCP metadata
 
 ---
 

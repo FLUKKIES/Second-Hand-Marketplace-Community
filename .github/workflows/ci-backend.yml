@@ -1,0 +1,50 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 10
+        run_install: false
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+        cache-dependency-path: './backend/pnpm-lock.yaml'
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Generate Prisma Client
+      run: pnpm run build
+      env:
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+
+    - name: Run Linter
+      run: pnpm run lint
+
+    - name: Run Unit Tests with Coverage
+      run: pnpm run test:cov
+      env:
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"

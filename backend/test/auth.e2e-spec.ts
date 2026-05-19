@@ -31,7 +31,7 @@ describe('AuthController (e2e)', () => {
         username: `user_${suffix}`,
         password: 'password123',
         firstName: 'Test',
-        lastName: 'User'
+        lastName: 'User',
       };
 
       return request(app.getHttpServer())

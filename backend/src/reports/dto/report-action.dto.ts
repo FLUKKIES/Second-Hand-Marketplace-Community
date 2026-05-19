@@ -1,28 +1,35 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export enum ReportAction {
-    WARN = 'WARN',
-    TEMP_BAN = 'TEMP_BAN',
-    PERMA_BAN = 'PERMA_BAN',
-    DISMISS = 'DISMISS',
+  WARN = 'WARN',
+  TEMP_BAN = 'TEMP_BAN',
+  PERMA_BAN = 'PERMA_BAN',
+  DISMISS = 'DISMISS',
 }
 
 export class ReportActionDto {
-    @IsEnum(ReportAction)
-    action: ReportAction;
+  @IsEnum(ReportAction)
+  action: ReportAction;
 
-    @IsString()
-    @IsOptional()
-    adminNotes?: string;
+  @IsString()
+  @IsOptional()
+  adminNotes?: string;
 
-    // For TEMP_BAN (days)
-    @IsNumber()
-    @Min(1)
-    @IsOptional()
-    banDurationDays?: number;
+  // For TEMP_BAN (days)
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  banDurationDays?: number;
 
-    // For WARN
-    @IsString()
-    @IsOptional()
-    warningMessage?: string;
+  // For WARN
+  @IsString()
+  @IsOptional()
+  warningMessage?: string;
 }

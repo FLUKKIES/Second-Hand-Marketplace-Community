@@ -9,4 +9,4 @@ import { UploadModule } from 'src/common/upload/upload.module';
   controllers: [PostsController],
   providers: [PostsService],
 })
-export class PostsModule { }
+export class PostsModule {}

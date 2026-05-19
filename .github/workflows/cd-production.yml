@@ -1,0 +1,38 @@
+name: GCP Production CD
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'README.md'
+      - 'REQUIREMENT.md'
+      - 'CLOUD_DEPLOYMENT.md'
+      - 'infra/gcp/GCP_DEPLOYMENT.md'
+      - 'infra/gcp/MIGRATION.md'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to GCP Compute Engine
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.GCP_HOST_IP }}
+        username: ${{ secrets.GCP_SSH_USERNAME }}
+        key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+        script: |
+          cd ~/projects/group-mart
+
+          # Pull latest changes
+          git pull origin main
+
+          # Rebuild and restart containers (GCP compose file)
+          docker compose -f docker-compose.gcp.yml up -d --build
+
+          # Clean up unused images to save disk space
+          docker image prune -af
+
+          # Verify services are running
+          sleep 10
+          docker compose -f docker-compose.gcp.yml ps

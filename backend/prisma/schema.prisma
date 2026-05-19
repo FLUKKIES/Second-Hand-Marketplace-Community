@@ -250,8 +250,8 @@ model Post {
 
     // *** Vector Embedding Field ***
     // ใช้ Unsupported เพราะ Prisma ยังไม่มี Native type สำหรับ vector
-    // ขนาด 1024 สำหรับ bge-m3
-    embedding Unsupported("vector(1024)")?
+    // ขนาด 3072 สำหรับ Gemini gemini-embedding-001
+    embedding Unsupported("vector(3072)")?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
@@ -285,7 +285,7 @@ model Product {
 
     // *** Vector Embedding Field ***
     // แยก Embedding ของ Product ออกมาต่างหาก เพื่อให้ค้นหาสินค้าได้แม่นยำขึ้น
-    embedding Unsupported("vector(1024)")?
+    embedding Unsupported("vector(3072)")?
 
     offers     Offer[]
     orderItems OrderItem[]
