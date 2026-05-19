@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config'; // *เช็ค path ดีๆ �
 import { PrismaModule } from './database/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadModule } from './upload/upload.module';
-import { OllamaModule } from './ai/ollama/ollama.module';
+import { GeminiModule } from './ai/gemini/gemini.module';
 import { SearchModule } from './search/search.module';
 import { NotificationModule } from './notification/notification.module';
 
@@ -14,10 +14,10 @@ import { NotificationModule } from './notification/notification.module';
     PrismaModule,
     AuthModule,
     UploadModule,
-    OllamaModule,
+    GeminiModule,
     SearchModule,
     NotificationModule,
   ],
-  exports: [AuthModule, PrismaModule, UploadModule, OllamaModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
+  exports: [AuthModule, PrismaModule, UploadModule, GeminiModule, SearchModule], // export ตัวที่ module อื่นต้องใช้
 })
 export class CommonModule {}
