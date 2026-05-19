@@ -1,15 +1,36 @@
-FROM node
+# 1. Install dependencies only when needed
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
+# 2. Rebuild the source code only when needed
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Generate Prisma Client
+RUN npx prisma generate
+RUN npm install -g pnpm && pnpm run build
+
+# 3. Production image, copy all the files and run next
+FROM node:20-alpine AS production
 WORKDIR /app
 
-RUN npm install -g pnpm
+ENV NODE_ENV=production
 
-COPY package.json pnpm-lock.yaml ./
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/prisma.config.ts ./
 
-RUN pnpm install 
+# Create uploads directory — this will be mounted as a Named Volume at runtime
+# so uploaded files survive container restarts and image rebuilds
+RUN mkdir -p /app/public/uploads
 
-COPY . .
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# RUN pnpm prisma generate 
-
-CMD ["pnpm", "run", "start:dev"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "dist/src/main"]

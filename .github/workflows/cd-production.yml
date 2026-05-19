@@ -3,19 +3,16 @@ name: GCP Production CD
 on:
   push:
     branches: [ "main" ]
-    # You might want to trigger this ONLY on a tag or manual dispatch in a real scenario
-    # but for continuous deployment on merge to main:
     paths-ignore:
       - 'README.md'
       - 'REQUIREMENT.md'
       - 'CLOUD_DEPLOYMENT.md'
+      - 'infra/gcp/GCP_DEPLOYMENT.md'
+      - 'infra/gcp/MIGRATION.md'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
-    # Optional: ensure CI passes first before deploying
-    # needs: [build-and-test] # If we had them in the same file
 
     steps:
     - name: Deploy to GCP Compute Engine
@@ -26,13 +23,16 @@ jobs:
         key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
         script: |
           cd ~/projects/group-mart
-          
+
           # Pull latest changes
           git pull origin main
-          
-          # Restart and rebuild containers
-          docker compose -f docker-compose.prod.yml down
-          docker compose -f docker-compose.prod.yml up -d --build
-          
+
+          # Rebuild and restart containers (GCP compose file)
+          docker compose -f docker-compose.gcp.yml up -d --build
+
           # Clean up unused images to save disk space
           docker image prune -af
+
+          # Verify services are running
+          sleep 10
+          docker compose -f docker-compose.gcp.yml ps
